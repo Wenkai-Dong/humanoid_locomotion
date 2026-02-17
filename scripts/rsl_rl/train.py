@@ -96,13 +96,14 @@ from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper
 
 import isaaclab_tasks  # noqa: F401
+import humanoid_locomotion.tasks    # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 # import logger
 logger = logging.getLogger(__name__)
 
-import humanoid_locomotion.tasks  # noqa: F401
+# PLACEHOLDER: Extension template (do not remove this comment)
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
