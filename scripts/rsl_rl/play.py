@@ -81,6 +81,7 @@ from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper, export_po
 from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
 
 import isaaclab_tasks  # noqa: F401
+import humanoid_locomotion.tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
@@ -167,6 +168,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # use the new export functions for rsl-rl >= 4.0.0
         runner.export_policy_to_jit(path=export_model_dir, filename="policy.pt")
         runner.export_policy_to_onnx(path=export_model_dir, filename="policy.onnx")
+        policy.to(env.unwrapped.device)
     else:
         # extract the neural network for rsl-rl < 4.0.0
         if version.parse(installed_version) >= version.parse("2.3.0"):

@@ -13,6 +13,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
+from humanoid_locomotion.custom_classes.rl_cfg import RslRlAME1ModelCfg
 
 from humanoid_locomotion.tasks.velocity.ame_1.mdp.symmetry import h1
 
@@ -26,7 +27,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         "actor": ["policy", "policy_map"],
         "critic": ["policy", "policy_map"],
     }
-    actor = RslRlCNNModelCfg(
+    actor = RslRlAME1ModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -34,38 +35,38 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         init_noise_std=1.0,
         noise_std_type="log",
         state_dependent_std=True,
-        cnn_cfg=RslRlCNNModelCfg.CNNCfg(
+        cnn_cfg=RslRlAME1ModelCfg.CNNCfg(
             output_channels=[16,61],
             kernel_size=5,
             stride=1,
             dilation=1,
             padding="zeros",
-            norm="none",
+            norm="batch",
             activation="elu",
             max_pool=False,
             global_pool="none",
-            flatten=True,
-        )
+            flatten = False,
+        ),
+        mha_cfg=RslRlAME1ModelCfg.MHACfg(
+            num_heads=16,
+            attention_type="cross",
+            norm="layer",
+            norm_position="pre_norm",
+            activation="identity",
+            flatten = False,
+        ),
+        linear_cfg=RslRlAME1ModelCfg.LinearCfg(
+            out_features=64,
+        ),
     )
-    critic = RslRlCNNModelCfg(
+    critic = RslRlAME1ModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
         stochastic=False,
-        cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16, 61],
-            kernel_size=5,
-            stride=1,
-            dilation=1,
-            padding="zeros",
-            norm="none",
-            activation="elu",
-            max_pool=False,
-            global_pool="none",
-            flatten=True,
-        )
     )
     algorithm = RslRlPpoAlgorithmCfg(
+        class_name= "humanoid_locomotion.custom_classes.algorithms.ppo:PPO",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
