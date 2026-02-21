@@ -207,7 +207,7 @@ class PPO:
         # RND loss
         mean_rnd_loss = 0 if self.rnd else None
         # Symmetry loss
-        mean_symmetry_loss = 0 if self.symmetry else None
+        mean_symmetry_loss = 0 if self.symmetry["use_mirror_loss"] else None
 
         # Get mini batch generator
         if self.actor.is_recurrent or self.critic.is_recurrent:
@@ -292,28 +292,27 @@ class PPO:
                     for param_group in self.optimizer.param_groups:
                         param_group["lr"] = self.learning_rate
 
-            with torch.autocast(device_type=self.device, dtype=torch.bfloat16):
-                # Surrogate loss
-                ratio = torch.exp(actions_log_prob - torch.squeeze(batch.old_actions_log_prob))
-                surrogate = -torch.squeeze(batch.advantages) * ratio
-                surrogate_clipped = -torch.squeeze(batch.advantages) * torch.clamp(
-                    ratio, 1.0 - self.clip_param, 1.0 + self.clip_param
-                )
-                surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
+            # Surrogate loss
+            ratio = torch.exp(actions_log_prob - torch.squeeze(batch.old_actions_log_prob))
+            surrogate = -torch.squeeze(batch.advantages) * ratio
+            surrogate_clipped = -torch.squeeze(batch.advantages) * torch.clamp(
+                ratio, 1.0 - self.clip_param, 1.0 + self.clip_param
+            )
+            surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
 
-                # Value function loss
-                if self.use_clipped_value_loss:
-                    value_clipped = batch.values + (values - batch.values).clamp(-self.clip_param, self.clip_param)
-                    value_losses = (values - batch.returns).pow(2)
-                    value_losses_clipped = (value_clipped - batch.returns).pow(2)
-                    value_loss = torch.max(value_losses, value_losses_clipped).mean()
-                else:
-                    value_loss = (batch.returns - values).pow(2).mean()
+            # Value function loss
+            if self.use_clipped_value_loss:
+                value_clipped = batch.values + (values - batch.values).clamp(-self.clip_param, self.clip_param)
+                value_losses = (values - batch.returns).pow(2)
+                value_losses_clipped = (value_clipped - batch.returns).pow(2)
+                value_loss = torch.max(value_losses, value_losses_clipped).mean()
+            else:
+                value_loss = (batch.returns - values).pow(2).mean()
 
-                loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy.mean()
+            loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy.mean()
 
             # Symmetry loss
-            if self.symmetry:
+            if self.symmetry["use_mirror_loss"]:
                 # Obtain the symmetric actions
                 # Note: If we did augmentation before then we don't need to augment again
                 if not self.symmetry["use_data_augmentation"]:
@@ -410,7 +409,7 @@ class PPO:
         }
         if self.rnd:
             loss_dict["rnd"] = mean_rnd_loss
-        if self.symmetry:
+        if self.symmetry["use_mirror_loss"]:
             loss_dict["symmetry"] = mean_symmetry_loss
 
         return loss_dict
