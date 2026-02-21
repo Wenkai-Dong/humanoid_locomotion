@@ -244,19 +244,18 @@ class PPO:
 
             # Recompute actions log prob and entropy for current batch of transitions
             # Note: We need to do this because we updated the policy with the new parameters
-            with torch.autocast(device_type=self.device, dtype=torch.bfloat16):
-                self.actor(
-                    batch.observations,
-                    masks=batch.masks,
-                    hidden_state=batch.hidden_states[0],
-                    stochastic_output=True,
-                )
-                actions_log_prob = self.actor.get_output_log_prob(batch.actions)
-                values = self.critic(batch.observations, masks=batch.masks, hidden_state=batch.hidden_states[1])
-                # Note: We only keep the entropy of the first augmentation (the original one)
-                mu = self.actor.output_mean[:original_batch_size]
-                sigma = self.actor.output_std[:original_batch_size]
-                entropy = self.actor.output_entropy[:original_batch_size]
+            self.actor(
+                batch.observations,
+                masks=batch.masks,
+                hidden_state=batch.hidden_states[0],
+                stochastic_output=True,
+            )
+            actions_log_prob = self.actor.get_output_log_prob(batch.actions)
+            values = self.critic(batch.observations, masks=batch.masks, hidden_state=batch.hidden_states[1])
+            # Note: We only keep the entropy of the first augmentation (the original one)
+            mu = self.actor.output_mean[:original_batch_size]
+            sigma = self.actor.output_std[:original_batch_size]
+            entropy = self.actor.output_entropy[:original_batch_size]
 
             # Compute KL divergence and adapt the learning rate
             if self.desired_kl is not None and self.schedule == "adaptive":

@@ -338,5 +338,6 @@ class H1Stage1EnvCfg_PLAY(H1Stage1EnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.scene.num_envs = 32
+        self.scene.terrain.max_init_terrain_level = AME1_STAGE1_TERRAINS_CFG.num_rows
         # self.scene.terrain.terrain_generator.num_rows = 2
         # self.scene.terrain.terrain_generator.num_cols = 10

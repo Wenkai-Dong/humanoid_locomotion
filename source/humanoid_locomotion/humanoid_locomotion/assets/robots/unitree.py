@@ -15,7 +15,7 @@ from isaaclab.actuators import IdealPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.utils import configclass
 
-from unitree_rl_lab.assets.robots import unitree_actuators
+from humanoid_locomotion.assets.robots import unitree_actuators
 
 UNITREE_MODEL_DIR = "D:/github_repositories/unitree_model"  # Replace with the actual path to your unitree_model directory
 # UNITREE_MODEL_DIR = "/home/dwk/unitree_model"
