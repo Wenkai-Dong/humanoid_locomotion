@@ -242,20 +242,21 @@ class PPO:
                 batch.advantages = batch.advantages.repeat(num_aug, 1)
                 batch.returns = batch.returns.repeat(num_aug, 1)
 
-            # Recompute actions log prob and entropy for current batch of transitions
-            # Note: We need to do this because we updated the policy with the new parameters
-            self.actor(
-                batch.observations,
-                masks=batch.masks,
-                hidden_state=batch.hidden_states[0],
-                stochastic_output=True,
-            )
-            actions_log_prob = self.actor.get_output_log_prob(batch.actions)
-            values = self.critic(batch.observations, masks=batch.masks, hidden_state=batch.hidden_states[1])
-            # Note: We only keep the entropy of the first augmentation (the original one)
-            mu = self.actor.output_mean[:original_batch_size]
-            sigma = self.actor.output_std[:original_batch_size]
-            entropy = self.actor.output_entropy[:original_batch_size]
+            with torch.autocast(device_type=self.device, dtype=torch.bfloat16):
+                # Recompute actions log prob and entropy for current batch of transitions
+                # Note: We need to do this because we updated the policy with the new parameters
+                self.actor(
+                    batch.observations,
+                    masks=batch.masks,
+                    hidden_state=batch.hidden_states[0],
+                    stochastic_output=True,
+                )
+                actions_log_prob = self.actor.get_output_log_prob(batch.actions).float()
+                values = self.critic(batch.observations, masks=batch.masks, hidden_state=batch.hidden_states[1]).float()
+                # Note: We only keep the entropy of the first augmentation (the original one)
+                mu = self.actor.output_mean[:original_batch_size].float()
+                sigma = self.actor.output_std[:original_batch_size].float()
+                entropy = self.actor.output_entropy[:original_batch_size].float()
 
             # Compute KL divergence and adapt the learning rate
             if self.desired_kl is not None and self.schedule == "adaptive":

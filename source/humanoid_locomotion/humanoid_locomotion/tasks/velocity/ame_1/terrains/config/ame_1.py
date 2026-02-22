@@ -47,7 +47,7 @@ AME1_STAGE1_TERRAINS_CFG = TerrainGeneratorCfg(
         ),
         "GridStones": terrain_gen.HfSteppingStonesTerrainCfg(
             stone_height_max=0.2,
-            stone_width_range=(0.12,0.8),
+            stone_width_range=(0.3,0.8),
             stone_distance_range=(0.05,0.3),
             holes_depth=-10,
             platform_width=1.5,
