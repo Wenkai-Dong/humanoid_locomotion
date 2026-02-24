@@ -46,26 +46,29 @@ def compute_symmetric_states(
         # since we have 4 different symmetries, we need to augment the batch size by 4
         obs_aug = obs.repeat(2)
 
-        # policy group
+        # actor group
         # -- original
-        obs_aug["policy"][:batch_size] = obs["policy"][:]
+        obs_aug["actor"][:batch_size] = obs["actor"][:]
         # -- left-right
-        obs_aug["policy"][batch_size : 2 * batch_size] = _transform_proprioception_left_right(obs["policy"])
-        # -- original
+        obs_aug["actor"][batch_size : 2 * batch_size] = _transform_proprioception_left_right(obs["actor"])
+
         # critic group
-        # obs_aug["critic"][:batch_size] = obs["critic"][:]
-        # -- left-right
-        # obs_aug["critic"][batch_size: 2 * batch_size] = _transform_proprioception_left_right(obs["critic"])
-        # policy map group
         # -- original
-        obs_aug["policy_map"][:batch_size] = obs["policy_map"][:]
+        obs_aug["critic"][:batch_size] = obs["critic"][:]
         # -- left-right
-        obs_aug["policy_map"][batch_size: 2 * batch_size] = _transform_map_scans_left_right(obs["policy_map"])
+        obs_aug["critic"][batch_size: 2 * batch_size] = _transform_proprioception_left_right(obs["critic"])
+
+        # actor map group
+        # -- original
+        obs_aug["actor_map"][:batch_size] = obs["actor_map"][:]
+        # -- left-right
+        obs_aug["actor_map"][batch_size: 2 * batch_size] = _transform_map_scans_left_right(obs["actor_map"])
+
         # critic map group
         # -- original
-        # obs_aug["critic_map"][:batch_size] = obs["critic_map"][:]
+        obs_aug["critic_map"][:batch_size] = obs["critic_map"][:]
         # -- left-right
-        # obs_aug["critic_map"][batch_size: 2 * batch_size] = _transform_map_scans_left_right(obs["critic_map"])
+        obs_aug["critic_map"][batch_size: 2 * batch_size] = _transform_map_scans_left_right(obs["critic_map"])
     else:
         obs_aug = None
 
@@ -121,6 +124,9 @@ def _transform_proprioception_left_right(obs: torch.Tensor) -> torch.Tensor:
     obs[:, 31:50] = _switch_h1_joints_left_right(obs[:, 31:50])
     # last_action
     obs[:, 50:69] = _switch_h1_joints_left_right(obs[:, 50:69])
+    # contact_state
+    if obs.shape[1] >= 80:
+        obs[:, 69:88] = _switch_h1_joints_left_right(obs[:, 69:88])
 
     return obs
 

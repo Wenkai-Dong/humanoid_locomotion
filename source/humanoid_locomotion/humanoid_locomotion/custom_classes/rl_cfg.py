@@ -93,7 +93,7 @@ class RslRlAME1ModelCfg(RslRlMLPModelCfg):
     mha_cfg: MHACfg = MISSING
     """The configuration for the MHA(s)."""
 
-    linear_cfg: LinearCfg = MISSING
+    linear_cfg: LinearCfg = None
     """The configuration for the MHA(s)."""
 
 

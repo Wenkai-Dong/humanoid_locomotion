@@ -6,9 +6,11 @@
 """Neural models for the learning algorithm."""
 
 from .ame1_model import AME1Model
-from .cnn_model import CNNModel
+from .ame2_actor_model import AME2ActorModel
+from .ame2_critic_model import AME2CriticModel
 
 __all__ = [
     "AME1Model",
-    "CNNModel"
+    "AME2ActorModel",
+    "AME2CriticModel",
 ]

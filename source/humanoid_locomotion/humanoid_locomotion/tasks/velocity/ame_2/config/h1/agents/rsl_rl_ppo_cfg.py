@@ -15,19 +15,20 @@ from isaaclab_rl.rsl_rl import (
 )
 from humanoid_locomotion.custom_classes.rl_cfg import RslRlAME1ModelCfg
 
-from humanoid_locomotion.tasks.velocity.ame_1.mdp.symmetry import h1
+from humanoid_locomotion.tasks.velocity.ame_2.mdp.symmetry import h1
 
 @configclass
-class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 20000
     save_interval = 100
-    experiment_name = "ame1_stage1_h1_v0"
+    experiment_name = "ame2_teacher_h1_v0"
     obs_groups = {
-        "actor": ["policy", "policy_map"],
-        "critic": ["policy", "policy_map"],
+        "actor": ["actor", "actor_map"],
+        "critic": ["critic", "critic_map"],
     }
     actor = RslRlAME1ModelCfg(
+        class_name="humanoid_locomotion.custom_classes.models.ame2_actor_model:AME2ActorModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -36,7 +37,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         noise_std_type="log",
         state_dependent_std=False,
         cnn_cfg=RslRlAME1ModelCfg.CNNCfg(
-            output_channels=[16,61],
+            output_channels=[16,48],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -53,24 +54,34 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
             norm="layer",
             norm_position="pre_norm",
             activation="identity",
-            flatten = False,
-        ),
-        linear_cfg=RslRlAME1ModelCfg.LinearCfg(
-            out_features=64,
+            flatten=False,
         ),
     )
     critic = RslRlAME1ModelCfg(
+        class_name="humanoid_locomotion.custom_classes.models.ame2_critic_model:AME2CriticModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
         stochastic=False,
+        cnn_cfg=RslRlAME1ModelCfg.CNNCfg(
+            output_channels=[16,32],
+            kernel_size=5,
+            stride=1,
+            dilation=1,
+            padding="zeros",
+            norm="layer",
+            activation="elu",
+            max_pool=True,
+            global_pool="none",
+            flatten=True,
+        ),
     )
     algorithm = RslRlPpoAlgorithmCfg(
         class_name= "humanoid_locomotion.custom_classes.algorithms.ppo:PPO",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.005,
+        entropy_coef=0.004,
         num_learning_epochs=5,
         num_mini_batches=6,
         learning_rate=1.0e-3,
@@ -79,7 +90,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
-        share_cnn_encoders = True,
+        share_cnn_encoders = False,
         symmetry_cfg=RslRlSymmetryCfg(
             use_data_augmentation=True, data_augmentation_func=h1.compute_symmetric_states
         ),
@@ -87,7 +98,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class H1Stage2PPORunnerCfg(H1Stage1PPORunnerCfg):
+class H1StudentPPORunnerCfg(H1TeacherPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
