@@ -8,9 +8,13 @@
 from .ame1_model import AME1Model
 from .ame2_actor_model import AME2ActorModel
 from .ame2_critic_model import AME2CriticModel
+from .dualgate_actor_model import DualGateActorModel
+from .dualgate_critic_model import DualGateCriticModel
 
 __all__ = [
     "AME1Model",
     "AME2ActorModel",
     "AME2CriticModel",
+    "DualGateActorModel",
+    "DualGateCriticModel"
 ]

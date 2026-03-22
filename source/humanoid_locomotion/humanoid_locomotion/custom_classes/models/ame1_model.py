@@ -33,19 +33,16 @@ class AME1Model(MLPModel):
         obs_groups: dict[str, list[str]],
         obs_set: str,
         output_dim: int,
-        cnn_cfg: dict[str, dict] | dict[str, Any],
-        mha_cfg: dict[str, dict] | dict[str, Any],
-        linear_cfg: dict[str, dict] | dict[str, Any],
-        cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
-        mhas: nn.ModuleDict | dict[str, nn.Module] | None = None,
-        linear: nn.ModuleList | list[nn.Module] | None = None,
         hidden_dims: tuple[int] | list[int] = [256, 256, 256],
         activation: str = "elu",
         obs_normalization: bool = False,
-        stochastic: bool = False,
-        init_noise_std: float = 1.0,
-        noise_std_type: str = "scalar",
-        state_dependent_std: bool = False,
+        distribution_cfg: dict | None = None,
+        cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
+        cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
+        mha_cfg: dict[str, dict] | dict[str, Any] | None = None,
+        mhas: nn.ModuleDict | dict[str, nn.Module] | None = None,
+        linear_cfg: dict[str, dict] | dict[str, Any] | None = None,
+        linear: nn.ModuleList | list[nn.Module] | None = None,
     ) -> None:
         """Initialize the CNN-based model.
 
@@ -131,10 +128,7 @@ class AME1Model(MLPModel):
             hidden_dims,
             activation,
             obs_normalization,
-            stochastic,
-            init_noise_std,
-            noise_std_type,
-            state_dependent_std,
+            distribution_cfg,
         )
 
         # Register CNN encoders
@@ -196,7 +190,8 @@ class AME1Model(MLPModel):
             else:
                 raise ValueError(f"Invalid observation shape for {obs_group}: {obs[obs_group].shape}")
 
-        assert obs_groups_2d, "No 2D observations are provided. If this is intentional, use the MLP model instead."
+        if not obs_groups_2d:
+            raise ValueError("No 2D observations are provided. If this is intentional, use the MLP model instead.")
 
         # Store active 2D observation groups and dimensions directly as attributes
         self.obs_dims_2d = obs_dims_2d

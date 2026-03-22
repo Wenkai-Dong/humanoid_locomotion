@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import torch
@@ -19,7 +20,11 @@ from rsl_rl.utils import resolve_callable, resolve_obs_groups, resolve_optimizer
 
 
 class PPO:
-    """Proximal Policy Optimization algorithm (https://arxiv.org/abs/1707.06347)."""
+    """Proximal Policy Optimization algorithm.
+
+    Reference:
+        - Schulman et al. "Proximal policy optimization algorithms." arXiv preprint arXiv:1707.06347 (2017).
+    """
 
     actor: MLPModel
     """The actor model."""
@@ -54,6 +59,7 @@ class PPO:
         # Distributed training parameters
         multi_gpu_cfg: dict | None = None,
     ) -> None:
+        """Initialize the algorithm with models, storage, and optimization settings."""
         # Device-related parameters
         self.device = device
         self.is_multi_gpu = multi_gpu_cfg is not None
@@ -131,14 +137,14 @@ class PPO:
         self.normalize_advantage_per_mini_batch = normalize_advantage_per_mini_batch
 
     def act(self, obs: TensorDict) -> torch.Tensor:
+        """Sample actions and store transition data."""
         # Record the hidden states for recurrent policies
         self.transition.hidden_states = (self.actor.get_hidden_state(), self.critic.get_hidden_state())
         # Compute the actions and values
         self.transition.actions = self.actor(obs, stochastic_output=True).detach()
         self.transition.values = self.critic(obs).detach()
         self.transition.actions_log_prob = self.actor.get_output_log_prob(self.transition.actions).detach()  # type: ignore
-        self.transition.action_mean = self.actor.output_mean.detach()
-        self.transition.action_sigma = self.actor.output_std.detach()
+        self.transition.distribution_params = tuple(p.detach() for p in self.actor.output_distribution_params)
         # Record observations before env.step()
         self.transition.observations = obs
         return self.transition.actions  # type: ignore
@@ -146,6 +152,7 @@ class PPO:
     def process_env_step(
         self, obs: TensorDict, rewards: torch.Tensor, dones: torch.Tensor, extras: dict[str, torch.Tensor]
     ) -> None:
+        """Record one environment step and update the normalizers."""
         # Update the normalizers
         self.actor.update_normalization(obs)
         self.critic.update_normalization(obs)
@@ -178,6 +185,7 @@ class PPO:
         self.critic.reset(dones)
 
     def compute_returns(self, obs: TensorDict) -> None:
+        """Compute return and advantage targets from stored transitions."""
         st = self.storage
         # Compute value for the last step
         last_values = self.critic(obs).detach()
@@ -201,6 +209,7 @@ class PPO:
             st.advantages = (st.advantages - st.advantages.mean()) / (st.advantages.std() + 1e-8)
 
     def update(self) -> dict[str, float]:
+        """Run optimization epochs over stored batches and return mean losses."""
         mean_value_loss = 0
         mean_surrogate_loss = 0
         mean_entropy = 0
@@ -222,7 +231,7 @@ class PPO:
             # Check if we should normalize advantages per mini batch
             if self.normalize_advantage_per_mini_batch:
                 with torch.no_grad():
-                    batch.advantages = (batch.advantages - batch.advantages.mean()) / (batch.advantages.std() + 1e-8)
+                    batch.advantages = (batch.advantages - batch.advantages.mean()) / (batch.advantages.std() + 1e-8)  # type: ignore
 
             # Perform symmetric augmentation
             if self.symmetry and self.symmetry["use_data_augmentation"]:
@@ -251,23 +260,16 @@ class PPO:
                     hidden_state=batch.hidden_states[0],
                     stochastic_output=True,
                 )
-                actions_log_prob = self.actor.get_output_log_prob(batch.actions).float()
+                actions_log_prob = self.actor.get_output_log_prob(batch.actions).float()  # type: ignore
                 values = self.critic(batch.observations, masks=batch.masks, hidden_state=batch.hidden_states[1]).float()
-                # Note: We only keep the entropy of the first augmentation (the original one)
-                mu = self.actor.output_mean[:original_batch_size].float()
-                sigma = self.actor.output_std[:original_batch_size].float()
+                # Note: We only keep the distribution parameters and entropy of the first augmentation (the original one)
+                distribution_params = tuple(p[:original_batch_size].float() for p in self.actor.output_distribution_params)
                 entropy = self.actor.output_entropy[:original_batch_size].float()
 
             # Compute KL divergence and adapt the learning rate
             if self.desired_kl is not None and self.schedule == "adaptive":
                 with torch.inference_mode():
-                    kl = torch.sum(
-                        torch.log(sigma / batch.old_sigma + 1.0e-5)
-                        + (torch.square(batch.old_sigma) + torch.square(batch.old_mu - mu))
-                        / (2.0 * torch.square(sigma))
-                        - 0.5,
-                        dim=-1,
-                    )
+                    kl = self.actor.get_kl_divergence(batch.old_distribution_params, distribution_params)  # type: ignore
                     kl_mean = torch.mean(kl)
 
                     # Reduce the KL divergence across all GPUs
@@ -293,9 +295,9 @@ class PPO:
                         param_group["lr"] = self.learning_rate
 
             # Surrogate loss
-            ratio = torch.exp(actions_log_prob - torch.squeeze(batch.old_actions_log_prob))
-            surrogate = -torch.squeeze(batch.advantages) * ratio
-            surrogate_clipped = -torch.squeeze(batch.advantages) * torch.clamp(
+            ratio = torch.exp(actions_log_prob - torch.squeeze(batch.old_actions_log_prob))  # type: ignore
+            surrogate = -torch.squeeze(batch.advantages) * ratio  # type: ignore
+            surrogate_clipped = -torch.squeeze(batch.advantages) * torch.clamp(  # type: ignore
                 ratio, 1.0 - self.clip_param, 1.0 + self.clip_param
             )
             surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
@@ -348,7 +350,7 @@ class PPO:
             if self.rnd:
                 # Extract the rnd_state
                 with torch.no_grad():
-                    rnd_state = self.rnd.get_rnd_state(batch.observations[:original_batch_size])
+                    rnd_state = self.rnd.get_rnd_state(batch.observations[:original_batch_size])  # type: ignore
                     rnd_state = self.rnd.state_normalizer(rnd_state)
                 # Predict the embedding and the target
                 predicted_embedding = self.rnd.predictor(rnd_state)
@@ -415,12 +417,14 @@ class PPO:
         return loss_dict
 
     def train_mode(self) -> None:
+        """Set train mode for learnable models."""
         self.actor.train()
         self.critic.train()
         if self.rnd:
             self.rnd.train()
 
     def eval_mode(self) -> None:
+        """Set evaluation mode for learnable models."""
         self.actor.eval()
         self.critic.eval()
         if self.rnd:
@@ -516,7 +520,7 @@ class PPO:
         self.actor.load_state_dict(model_params[0])
         self.critic.load_state_dict(model_params[1])
         if self.rnd:
-            self.rnd.predictor.load_state_dict(model_params[1])
+            self.rnd.predictor.load_state_dict(model_params[2])
 
     def reduce_parameters(self) -> None:
         """Collect gradients from all GPUs and average them.

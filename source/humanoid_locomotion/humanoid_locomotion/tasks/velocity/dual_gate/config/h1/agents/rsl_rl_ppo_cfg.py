@@ -22,19 +22,19 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 20000
     save_interval = 100
-    experiment_name = "ame2_teacher_h1_v0"
+    experiment_name = "dualgate_teacher_h1_v0"
     obs_groups = {
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
     actor = RslRlAME1ModelCfg(
-        class_name="humanoid_locomotion.custom_classes.models.ame2_actor_model:AME2ActorModel",
+        class_name="humanoid_locomotion.custom_classes.models.dualgate_actor_model:DualGateActorModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="log"),
         cnn_cfg=RslRlAME1ModelCfg.CNNCfg(
-            output_channels=[16,48],
+            output_channels=[16,32],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -50,12 +50,12 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
             attention_type="cross",
             norm="layer",
             norm_position="pre_norm",
-            activation="identity",
+            activation="sigmoid",
             flatten=False,
         ),
     )
     critic = RslRlAME1ModelCfg(
-        class_name="humanoid_locomotion.custom_classes.models.ame2_critic_model:AME2CriticModel",
+        class_name="humanoid_locomotion.custom_classes.models.dualgate_critic_model:DualGateCriticModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -86,6 +86,7 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
+        normalize_advantage_per_mini_batch=True,
         share_cnn_encoders = False,
         symmetry_cfg=RslRlSymmetryCfg(
             use_data_augmentation=True, data_augmentation_func=h1.compute_symmetric_states
@@ -98,5 +99,5 @@ class H1StudentPPORunnerCfg(H1TeacherPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.experiment_name = "ame1_stage2_h1_v0"
+        self.experiment_name = "dualgate_h1_v0"
         self.algorithm.entropy_coef=0.002

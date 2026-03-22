@@ -17,7 +17,7 @@ from humanoid_locomotion.custom_classes.modules.cnn import CNN
 from humanoid_locomotion.custom_classes.modules.mha import MHA
 
 
-class AME2ActorModel(MLPModel):
+class DualGateActorModel(MLPModel):
     """CNN-based neural model.
 
     This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
@@ -76,8 +76,23 @@ class AME2ActorModel(MLPModel):
 
         # Create Proprioception Encoder
         self.ProprioceptionEncoder = nn.Sequential(
-            nn.Linear(in_features=obs_dim_1d, out_features=64),
+            nn.Linear(in_features=94, out_features=256),
             nn.ELU(),
+            nn.Linear(in_features=256, out_features=128),
+            nn.ELU(),
+            nn.Linear(in_features=128, out_features=64),
+            nn.ELU(),
+        )
+
+        # Create Self Gated-Attention
+        self.SelfGatedAttention = MHA(
+            input_dim_q=64,
+            input_channels_q=2,
+            input_dim_kv=64,
+            num_heads=16,
+            attention_type="self",
+            activation="sigmoid",
+            flatten=False
         )
 
         # Create or validate CNN encoders
@@ -114,27 +129,39 @@ class AME2ActorModel(MLPModel):
             nn.Linear(in_features=32, out_features=16),
             nn.ELU(),
         )
-        # Create Mapping Embedding MLP
-        self.MappingEmbeddingMLP = nn.Sequential(
-            nn.Linear(in_features=64, out_features=96),
+        # Create Dilated Convolution
+        self.DilatedCon2d = nn.Sequential(
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=8,
+                kernel_size=5,
+                stride=1,
+                padding=4,
+                dilation=2,
+            ),
+            nn.LayerNorm(
+                normalized_shape=(8, 13, 21)
+            ),
             nn.ELU(),
-        )
-        # Create MLP & MaxPool
-        self.MLPMaxPool = nn.Sequential(    # global_features, _ = torch.max(x, dim=1, keepdim=True)
-            nn.Linear(in_features=96, out_features=64),
-            nn.ELU(),
-        )
-        # Create Proprioception Embedding MLP
-        self.ProprioceptionEmbeddingMLP = nn.Sequential(
-            nn.Linear(in_features=128, out_features=96),
+            nn.Conv2d(
+                in_channels=8,
+                out_channels=16,
+                kernel_size=5,
+                stride=1,
+                padding=4,
+                dilation=2,
+            ),
+            nn.LayerNorm(
+                normalized_shape=(16, 13, 21)
+            ),
             nn.ELU(),
         )
 
         # Create MHA encoders
         self.mha = MHA(
-            input_dim_q=96,
-            input_channels_q=1,
-            input_dim_kv=96,
+            input_dim_q=64,
+            input_channels_q=2,
+            input_dim_kv=64,
             **mha_cfg,
         )
 
@@ -144,24 +171,26 @@ class AME2ActorModel(MLPModel):
         else:
             self.cnns = nn.ModuleDict(cnns)
 
+
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ) -> torch.Tensor:
         # Concatenate 1D observation groups and normalize
         latent_1d = super().get_latent(obs)
-        latent_1d = latent_1d.unsqueeze(1)
-        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)
-        # Process 2D observation groups with AME-2 Encoder
+        prip = latent_1d[:,:69].unsqueeze(1).expand(-1,2,-1)
+        priv = latent_1d[:,69:].reshape(-1,2,25)
+        dual_prop = torch.cat([prip, priv], dim=-1)
+        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
+        # Process 2D observation groups with Dual-Gate Encoder
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:,2:3,:,:]) for obs_group in self.obs_groups_2d]
         local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0,2,1)
-        cnn_obs = obs["actor_map"].flatten(start_dim=2).permute(0,2,1)
-        positional_embedding = self.MappingMLP(cnn_obs)
-        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1))
-        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0]
-        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1))
-        weighted_local_features = self.mha(query, pointwise_local_features)
+        cnn_obs = obs["actor_map"]
+        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0,2,1))
+        dilated_embedding = self.DilatedCon2d(cnn_obs[:,2:3,:,:]).flatten(start_dim=2).permute(0,2,1)
+        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
+        weighted_local_features = self.mha(prip_features, mapping_features)
         # Concatenate 1D and AME2 latents
-        return torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
+        return torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""
@@ -203,7 +232,7 @@ class AME2ActorModel(MLPModel):
         return obs_groups_1d, obs_dim_1d
 
     def _get_latent_dim(self) -> int:
-        return int(224)
+        return int(256)
 
 
 class _TorchAME1Model(nn.Module):
