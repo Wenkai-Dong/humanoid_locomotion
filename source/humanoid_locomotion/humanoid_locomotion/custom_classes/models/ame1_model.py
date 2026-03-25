@@ -211,11 +211,14 @@ class _TorchAME1Model(nn.Module):
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
-        self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
+        self.mhas = nn.ModuleList([copy.deepcopy(model.mhas[g]) for g in model.obs_groups_2d])
+        self.linear = copy.deepcopy(model.linear)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
     def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
@@ -235,9 +238,7 @@ class _TorchAME1Model(nn.Module):
         latent = torch.cat([latent_1d, latent_mha], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
@@ -252,11 +253,14 @@ class _OnnxAME1Model(nn.Module):
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
-        self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
+        self.mhas = nn.ModuleList([copy.deepcopy(model.mhas[g]) for g in model.obs_groups_2d])
+        self.linear = copy.deepcopy(model.linear)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
         self.obs_groups_2d = model.obs_groups_2d
         self.obs_dims_2d = model.obs_dims_2d
@@ -281,9 +285,7 @@ class _OnnxAME1Model(nn.Module):
         latent = torch.cat([latent_1d, latent_mha], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     def get_dummy_inputs(self) -> tuple[torch.Tensor, ...]:
         dummy_1d = torch.zeros(1, self.obs_dim_1d)

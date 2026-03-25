@@ -31,10 +31,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
-        stochastic=True,
-        init_noise_std=1.0,
-        noise_std_type="log",
-        state_dependent_std=False,
+        distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="log"),
         cnn_cfg=RslRlAME1ModelCfg.CNNCfg(
             output_channels=[16,61],
             kernel_size=5,

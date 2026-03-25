@@ -209,37 +209,42 @@ class AME2ActorModel(MLPModel):
 class _TorchAME1Model(nn.Module):
     """Exportable CNN model for JIT."""
 
-    def __init__(self, model: AME1Model) -> None:
+    def __init__(self, model: AME2ActorModel) -> None:
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
-        self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
+        self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
+        self.MappingMLP = copy.deepcopy(model.MappingMLP)
+        self.MappingEmbeddingMLP = copy.deepcopy(model.MappingEmbeddingMLP)
+        self.MLPMaxPool = copy.deepcopy(model.MLPMaxPool)
+        self.ProprioceptionEmbeddingMLP = copy.deepcopy(model.ProprioceptionEmbeddingMLP)
+        self.mha = copy.deepcopy(model.mha)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
     def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
         latent_1d = latent_1d.unsqueeze(1)
-        latent_1d_enc = self.linear(latent_1d)
+        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)
 
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
             latent_cnn_list.append(cnn(obs_2d[i][:,2:3,:,:]))
-        latent_cnn = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2)
-        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2)
-        latent_cnn = torch.cat((cnn_obs, latent_cnn), dim=1).permute(0, 2, 1)
-        latent_mha_list = []
-        for i, mha in enumerate(self.mhas):
-            latent_mha_list.append(mha(latent_1d_enc,latent_cnn))
-        latent_mha = torch.cat(latent_mha_list, dim=-1)
-        latent = torch.cat([latent_1d, latent_mha], dim=-1)
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
+        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2).permute(0,2,1)
+        positional_embedding = self.MappingMLP(cnn_obs)
+        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1))
+        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0]
+        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1))
+        weighted_local_features = self.mha(query, pointwise_local_features)
+        latent = torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
@@ -249,16 +254,23 @@ class _TorchAME1Model(nn.Module):
 class _OnnxAME1Model(nn.Module):
     """Exportable CNN model for ONNX."""
 
-    def __init__(self, model: AME1Model, verbose: bool) -> None:
+    def __init__(self, model: AME2ActorModel, verbose: bool) -> None:
         super().__init__()
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
+        self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
         self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.MappingMLP = copy.deepcopy(model.MappingMLP)
+        self.MappingEmbeddingMLP = copy.deepcopy(model.MappingEmbeddingMLP)
+        self.MLPMaxPool = copy.deepcopy(model.MLPMaxPool)
+        self.ProprioceptionEmbeddingMLP = copy.deepcopy(model.ProprioceptionEmbeddingMLP)
+        self.mha = copy.deepcopy(model.mha)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
         self.obs_groups_2d = model.obs_groups_2d
         self.obs_dims_2d = model.obs_dims_2d
@@ -268,24 +280,22 @@ class _OnnxAME1Model(nn.Module):
     def forward(self, obs_1d: torch.Tensor, *obs_2d: torch.Tensor) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
         latent_1d = latent_1d.unsqueeze(1)
-        latent_1d_enc = self.linear(latent_1d)
+        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)
 
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
-            latent_cnn_list.append(cnn(obs_2d[i][:,2:3,:,:]))
-        latent_cnn = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2)
-        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2)
-        latent_cnn = torch.cat((cnn_obs, latent_cnn), dim=1).permute(0, 2, 1)
-        latent_mha_list = []
-        for i, mha in enumerate(self.mhas):
-            latent_mha_list.append(mha(latent_1d_enc,latent_cnn))
-        latent_mha = torch.cat(latent_mha_list, dim=-1)
-        latent = torch.cat([latent_1d, latent_mha], dim=-1)
+            latent_cnn_list.append(cnn(obs_2d[i][:, 2:3, :, :]))
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
+        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2).permute(0,2,1)
+        positional_embedding = self.MappingMLP(cnn_obs)
+        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1))
+        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0]
+        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1))
+        weighted_local_features = self.mha(query, pointwise_local_features)
+        latent = torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     def get_dummy_inputs(self) -> tuple[torch.Tensor, ...]:
         dummy_1d = torch.zeros(1, self.obs_dim_1d)

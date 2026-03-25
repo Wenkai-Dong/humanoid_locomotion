@@ -86,7 +86,6 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
-        normalize_advantage_per_mini_batch=True,
         share_cnn_encoders = False,
         symmetry_cfg=RslRlSymmetryCfg(
             use_data_augmentation=True, data_augmentation_func=h1.compute_symmetric_states

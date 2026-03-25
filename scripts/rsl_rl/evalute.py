@@ -54,17 +54,18 @@ simulation_app = app_launcher.app
 """Check for installed RSL-RL version."""
 
 import importlib.metadata as metadata
+
 from packaging import version
 
 installed_version = metadata.version("rsl-rl-lib")
 
 """Rest everything follows."""
 
-import gymnasium as gym
 import os
 import time
-import torch
 
+import gymnasium as gym
+import torch
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab.envs import (
@@ -77,7 +78,13 @@ from isaaclab.envs import (
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
 
-from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper, export_policy_as_jit, export_policy_as_onnx
+from isaaclab_rl.rsl_rl import (
+    RslRlBaseRunnerCfg,
+    RslRlVecEnvWrapper,
+    export_policy_as_jit,
+    export_policy_as_onnx,
+    handle_deprecated_rsl_rl_cfg,
+)
 from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
 
 import isaaclab_tasks  # noqa: F401
@@ -100,7 +107,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
 
     # handle deprecated configurations
-    agent_cfg = cli_args.handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
+    agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
 
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here
@@ -168,7 +175,6 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # use the new export functions for rsl-rl >= 4.0.0
         runner.export_policy_to_jit(path=export_model_dir, filename="policy.pt")
         runner.export_policy_to_onnx(path=export_model_dir, filename="policy.onnx")
-        policy.to(env.unwrapped.device)
     else:
         # extract the neural network for rsl-rl < 4.0.0
         if version.parse(installed_version) >= version.parse("2.3.0"):
@@ -188,20 +194,19 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         export_policy_as_jit(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.pt")
         export_policy_as_onnx(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.onnx")
 
-    dt = env.unwrapped.step_dt
-
     # reset environment
     obs = env.get_observations()
     timestep = 0
     # simulate environment
     while simulation_app.is_running():
-        start_time = time.time()
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
             actions = policy(obs)
             # env stepping
             obs, _, dones, _ = env.step(actions)
+            if torch.all(env.unwrapped.recorder_manager._terms["count"].episode_count > 1):
+                break
             # reset recurrent states for episodes that have terminated
             if version.parse(installed_version) >= version.parse("4.0.0"):
                 policy.reset(dones)
@@ -212,11 +217,6 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             # Exit the play loop after recording one video
             if timestep == args_cli.video_length:
                 break
-
-        # time delay for real-time evaluation
-        sleep_time = dt - (time.time() - start_time)
-        if args_cli.real_time and sleep_time > 0:
-            time.sleep(sleep_time)
 
     # close the simulator
     env.close()

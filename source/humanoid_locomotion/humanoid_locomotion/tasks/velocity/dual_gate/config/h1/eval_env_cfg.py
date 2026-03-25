@@ -4,11 +4,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from isaaclab.utils import configclass
+import math
 
-from humanoid_locomotion.tasks.velocity.ame_1.config.h1.stage2_env_cfg import H1Stage2EnvCfg
-from humanoid_locomotion.tasks.velocity.ame_1.config.h1.stage1_env_cfg import CommandsCfg, TerminationsCfg
+from humanoid_locomotion.tasks.velocity.dual_gate.config.h1.teacher_env_cfg import H1TeacherEnvCfg
+from humanoid_locomotion.tasks.velocity.dual_gate.config.h1.teacher_env_cfg import CommandsCfg, TerminationsCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
-from humanoid_locomotion.tasks.velocity.ame_1.terrains.config.ame_1_eval import AME1_STAGE2_EVALUATE_TERRAINS_CFG
+from humanoid_locomotion.tasks.velocity.ame_1.terrains.config.ame_1_eval import AME1_STAGE1_EVALUATE_TERRAINS_CFG
 from humanoid_locomotion.tasks.velocity.ame_1 import mdp
 
 ##
@@ -42,15 +43,15 @@ class EvalTerminationsCfg(TerminationsCfg):
 class RecorderManagerCfg(mdp.TrackingErrorRecorderManagerCfg):
     """Recorder configurations for recording actions and states."""
 
-    dataset_export_dir_path = "logs/rsl_rl/ame1_eval_h1_v0"
+    dataset_export_dir_path = "logs/rsl_rl/dualgate_teacher_h1_v0"
 
 
 @configclass
-class H1EvalEnvCfg(H1Stage2EnvCfg):
+class H1EvalEnvCfg(H1TeacherEnvCfg):
     # Basic Settings
     commands: EvalCommandsCfg = EvalCommandsCfg()
     # MDP Settings
-    events: EvalTerminationsCfg = EvalTerminationsCfg()
+    terminations: EvalTerminationsCfg = EvalTerminationsCfg()
     # Recoder Settings
     recorders: RecorderManagerCfg = RecorderManagerCfg()
 
@@ -59,15 +60,15 @@ class H1EvalEnvCfg(H1Stage2EnvCfg):
         super().__post_init__()
 
         # scene
-        self.scene.terrain.terrain_generator = AME1_STAGE2_EVALUATE_TERRAINS_CFG
-        self.scene.terrain.max_init_terrain_level = 1
+        # self.scene.terrain.terrain_generator = AME1_STAGE1_EVALUATE_TERRAINS_CFG
+        self.scene.terrain.max_init_terrain_level = None
         # events
         self.events.physics_material = None
         self.events.add_base_mass = None
         self.events.reset_robot_joints = None
         self.events.push_robot = None
         # commands
-        self.commands.base_velocity.ranges.lin_vel_x = (0.4, 0.4)
+        self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
 
 @configclass
 class H1EvalEnvCfg_PLAY(H1EvalEnvCfg):

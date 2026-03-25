@@ -148,6 +148,9 @@ class MHABlock(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout, bias, kdim=None, vdim=None, activation=None) -> None:
 
         super().__init__()
+        self.need_weights: bool = False
+        self.attn_weights = torch.zeros(0)
+
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
@@ -192,6 +195,9 @@ class MHABlock(nn.Module):
         q = q.view(batch_size, seq_len_q, self.num_heads, self.head_dim).transpose(1, 2)
         k = k.view(batch_size, seq_len_kv, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(batch_size, seq_len_kv, self.num_heads, self.head_dim).transpose(1, 2)
+
+        if self.need_weights:
+            self.attn_weights = torch.softmax(torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1)
 
         o = F.scaled_dot_product_attention(q, k, v,
                                            dropout_p=self.dropout_p if self.training else 0.0,

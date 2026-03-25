@@ -238,37 +238,43 @@ class DualGateActorModel(MLPModel):
 class _TorchAME1Model(nn.Module):
     """Exportable CNN model for JIT."""
 
-    def __init__(self, model: AME1Model) -> None:
+    def __init__(self, model: DualGateActorModel) -> None:
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
-        self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
+        self.SelfGatedAttention = copy.deepcopy(model.SelfGatedAttention)
+        self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
+        self.MappingMLP = copy.deepcopy(model.MappingMLP)
+        self.DilatedCon2d = copy.deepcopy(model.DilatedCon2d)
+        self.mha = copy.deepcopy(model.mha)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
     def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
-        latent_1d = latent_1d.unsqueeze(1)
-        latent_1d_enc = self.linear(latent_1d)
-
+        prip = latent_1d[:, :69].unsqueeze(1).expand(-1, 2, -1)
+        priv = latent_1d[:, 69:].reshape(-1, 2, 25)
+        dual_prop = torch.cat([prip, priv], dim=-1)
+        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
+        # Process 2D observation groups with Dual-Gate Encoder
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
-            latent_cnn_list.append(cnn(obs_2d[i][:,2:3,:,:]))
-        latent_cnn = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2)
-        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2)
-        latent_cnn = torch.cat((cnn_obs, latent_cnn), dim=1).permute(0, 2, 1)
-        latent_mha_list = []
-        for i, mha in enumerate(self.mhas):
-            latent_mha_list.append(mha(latent_1d_enc,latent_cnn))
-        latent_mha = torch.cat(latent_mha_list, dim=-1)
-        latent = torch.cat([latent_1d, latent_mha], dim=-1)
+            latent_cnn_list.append(cnn(obs_2d[i][:, 2:3, :, :]))
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
+        cnn_obs = torch.cat(obs_2d, dim=-1)
+        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0, 2, 1))
+        dilated_embedding = self.DilatedCon2d(cnn_obs[:, 2:3, :, :]).flatten(start_dim=2).permute(0, 2, 1)
+        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
+        weighted_local_features = self.mha(prip_features, mapping_features)
+        # Concatenate 1D and AME2 latents
+        latent = torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
@@ -278,16 +284,22 @@ class _TorchAME1Model(nn.Module):
 class _OnnxAME1Model(nn.Module):
     """Exportable CNN model for ONNX."""
 
-    def __init__(self, model: AME1Model, verbose: bool) -> None:
+    def __init__(self, model: DualGateActorModel, verbose: bool) -> None:
         super().__init__()
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
-        self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
-        self.mhas = nn.ModuleList([model.mhas[g] for g in model.obs_groups_2d])
-        self.linear = model.linear
+        self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
+        self.SelfGatedAttention = copy.deepcopy(model.SelfGatedAttention)
+        self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
+        self.MappingMLP = copy.deepcopy(model.MappingMLP)
+        self.DilatedCon2d = copy.deepcopy(model.DilatedCon2d)
+        self.mha = copy.deepcopy(model.mha)
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
         self.obs_groups_2d = model.obs_groups_2d
         self.obs_dims_2d = model.obs_dims_2d
@@ -296,25 +308,25 @@ class _OnnxAME1Model(nn.Module):
 
     def forward(self, obs_1d: torch.Tensor, *obs_2d: torch.Tensor) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
-        latent_1d = latent_1d.unsqueeze(1)
-        latent_1d_enc = self.linear(latent_1d)
-
+        prip = latent_1d[:, :69].unsqueeze(1).expand(-1, 2, -1)
+        priv = latent_1d[:, 69:].reshape(-1, 2, 25)
+        dual_prop = torch.cat([prip, priv], dim=-1)
+        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
+        # Process 2D observation groups with Dual-Gate Encoder
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
-            latent_cnn_list.append(cnn(obs_2d[i][:,2:3,:,:]))
-        latent_cnn = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2)
-        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2)
-        latent_cnn = torch.cat((cnn_obs, latent_cnn), dim=1).permute(0, 2, 1)
-        latent_mha_list = []
-        for i, mha in enumerate(self.mhas):
-            latent_mha_list.append(mha(latent_1d_enc,latent_cnn))
-        latent_mha = torch.cat(latent_mha_list, dim=-1)
-        latent = torch.cat([latent_1d, latent_mha], dim=-1)
+            latent_cnn_list.append(cnn(obs_2d[i][:, 2:3, :, :]))
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
+        cnn_obs = torch.cat(obs_2d, dim=-1)
+        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0, 2, 1))
+        dilated_embedding = self.DilatedCon2d(cnn_obs[:, 2:3, :, :]).flatten(start_dim=2).permute(0, 2, 1)
+        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
+        weighted_local_features = self.mha(prip_features, mapping_features)
+        # Concatenate 1D and AME2 latents
+        latent = torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     def get_dummy_inputs(self) -> tuple[torch.Tensor, ...]:
         dummy_1d = torch.zeros(1, self.obs_dim_1d)
