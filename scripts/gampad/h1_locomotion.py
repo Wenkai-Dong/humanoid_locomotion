@@ -110,7 +110,7 @@ class H1RoughDemo:
         checkpoint = "D:/humanoid_locomotion/logs/rsl_rl/dualgate_teacher_h1_v0/2026-03-22_15-27-07/model_19400.pt"
         # create envionrment
         env_cfg = H1TeacherEnvCfg_PLAY()
-        env_cfg.scene.num_envs = 32
+        env_cfg.scene.num_envs = 128
         env_cfg.episode_length_s = 1000000
         env_cfg.curriculum = None
         # env_cfg.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)

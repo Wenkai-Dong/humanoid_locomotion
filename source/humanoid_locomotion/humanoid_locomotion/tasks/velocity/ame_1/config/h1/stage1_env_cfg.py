@@ -31,7 +31,7 @@ class RobotSceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground",
         terrain_type="generator",  # "plane", "generator"
         terrain_generator=AME1_STAGE1_TERRAINS_CFG,  # None, ROUGH_TERRAINS_CFG
-        max_init_terrain_level=0,
+        max_init_terrain_level=None,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -338,6 +338,32 @@ class H1Stage1EnvCfg_PLAY(H1Stage1EnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.scene.num_envs = 32
-        self.scene.terrain.max_init_terrain_level = AME1_STAGE1_TERRAINS_CFG.num_rows
-        # self.scene.terrain.terrain_generator.num_rows = 2
-        # self.scene.terrain.terrain_generator.num_cols = 10
+
+@configclass
+class RecorderManagerCfg(mdp.TrackingErrorRecorderManagerCfg):
+    """Recorder configurations for recording actions and states."""
+
+    dataset_export_dir_path = "logs/rsl_rl/ame1_stage1_h1_v0"
+
+@configclass
+class H1Stage1EnvCfg_EVAL(H1Stage1EnvCfg):
+    # Recoder Settings
+    recorders: RecorderManagerCfg = RecorderManagerCfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+        # scene
+        self.scene.terrain.terrain_generator.difficulty_range = (1., 1.)
+        # events
+        self.events.physics_material = None
+        self.events.add_base_mass = None
+        self.events.reset_robot_joints = None
+        self.events.push_robot = None
+        # commands
+        self.commands.base_velocity.rel_standing_envs = 0.
+        self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0., 0.)
+        self.commands.base_velocity.ranges.heading = (-0.0, 0.0)
+        self.commands.base_velocity.resampling_time_range = (20., 20.)
+        # terminations
+        self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})

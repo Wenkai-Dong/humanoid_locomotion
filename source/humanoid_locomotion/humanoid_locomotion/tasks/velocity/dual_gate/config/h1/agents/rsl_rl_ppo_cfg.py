@@ -20,7 +20,7 @@ from humanoid_locomotion.tasks.velocity.ame_2.mdp.symmetry import h1
 @configclass
 class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
-    max_iterations = 20000
+    max_iterations = 30000
     save_interval = 100
     experiment_name = "dualgate_teacher_h1_v0"
     obs_groups = {

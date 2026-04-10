@@ -22,8 +22,8 @@ AME1_STAGE1_TERRAINS_CFG = TerrainGeneratorCfg(
     difficulty_range=(0.0, 1.0),
     use_cache=False,
     sub_terrains={
-        "Rough":terrain_gen.HfRandomUniformTerrainCfg(
-            noise_range=(0.02, 0.15),
+        "Rough":attention_terrains_gen.HfRandomUniformDifficultyTerrainCfg(
+            noise_range=(-0.075, 0.075),
             noise_step=0.02,
             border_width=1.
         ),
@@ -94,44 +94,6 @@ AME1_STAGE2_TERRAINS_CFG = TerrainGeneratorCfg(
     difficulty_range=(0.0, 1.0),
     use_cache=False,
     sub_terrains={
-        "PentagonStones": terrain_gen.trimesh.mesh_terrains_cfg.MeshRepeatedBoxesTerrainCfg(
-            abs_height_noise=(-0.5, 0.5),
-            # rel_height_noise=(1., 1.),
-            platform_width=2.,
-            platform_height=-1.,
-            object_type="box",
-            object_params_start=terrain_gen.trimesh.mesh_terrains_cfg.MeshRepeatedBoxesTerrainCfg.ObjectCfg(
-                num_objects=256,
-                height=5.,
-                size=(0.6,0.6),
-                max_yx_angle=5.,
-                degrees=True,
-            ),
-            object_params_end=terrain_gen.trimesh.mesh_terrains_cfg.MeshRepeatedBoxesTerrainCfg.ObjectCfg(
-                num_objects=512,
-                height=5.,
-                size=(0.4,0.4),
-                max_yx_angle=30.,
-                degrees=True,
-            ),
-        ),
-        "Single-columnStones": attention_terrains_gen.HfSingleColumnStonesTerrainCfg(
-            stone_height_max=0.3,
-            stone_width_range=(0.3,0.8),
-            stone_distance_range=(0.1,0.5),
-            holes_depth=-10,
-            platform_width=2.,
-            border_width=1,
-        ),
-        "NarrowPallets": attention_terrains_gen.HfNarrowPalletsTerrainCfg(
-            stone_height_max=0.3,
-            stone_length_range=(0.3, 0.8),
-            stone_width_range=(0.8, 0.8),
-            stone_distance_range=(0.1, 0.5),
-            holes_depth=-10,
-            platform_width=2.,
-            border_width=1,
-        ),
         "ConsecutiveGaps": attention_terrains_gen.MeshConcentricBeamsTerrainCfg(
             function = attention_terrains_gen.mesh_concentric_beams_terrain,
             # 基础参数
@@ -155,6 +117,18 @@ AME1_STAGE2_TERRAINS_CFG = TerrainGeneratorCfg(
             platform_width=0.55,
             holes=True,
             border_width=1,
+        ),
+        "stakes1": attention_terrains_gen.HfDoubleColumnStakesTerrainCfg(
+            stake_height_max=0.03, stake_side_range=(0.30, 0.40), stake_gap_range=(0.1, 0.3),
+            column_gap_range=(0.1, 0.1), column_jitter=0.0, holes_depth=-2.0, platform_width=2.0, border_width=1.
+        ),
+        "stakes2": attention_terrains_gen.HfAlternateColumnStakesTerrainCfg(
+            stake_height_max=0.03, stake_side_range=(0.40, 0.50), stake_gap_range=(0.05, 0.15),
+            column_gap_range=(0.0, 0.2), column_jitter=0.0, holes_depth=-2.0, platform_width=2.0, border_width=1.
+        ),
+        "stakes3": attention_terrains_gen.HfAlternateColumnStakesTerrainCfg(
+            stake_height_max=0.03, stake_side_range=(0.30, 0.40), stake_gap_range=(0.05, 0.25),
+            column_gap_range=(0.3, 0.2), column_jitter=0.0, holes_depth=-2.0, platform_width=2.0, border_width=1.
         ),
     },
 )
