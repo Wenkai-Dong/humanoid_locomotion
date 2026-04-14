@@ -52,7 +52,7 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         activation="elu",
         obs_normalization=True,
         cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16,48],
+            output_channels=[16, 32],
             kernel_size=5,
             stride=1,
             dilation=1,

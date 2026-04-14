@@ -114,26 +114,7 @@ class AME2CriticModel(MLPModel):
             cnn.init_weights()
 
         self.local_embedding_mlp = nn.Sequential(
-            nn.Linear(in_features=1152, out_features=512),
-            nn.ELU(),
-            nn.Linear(in_features=512, out_features=128),
-            nn.ELU(),
-            nn.Linear(in_features=128, out_features=48),
-            nn.ELU(),
-        )
-        # Create Mapping MLP
-        self.MappingMLP = nn.Sequential(
-            nn.Linear(in_features=819, out_features=256),
-            nn.ELU(),
-            nn.Linear(in_features=256, out_features=64),
-            nn.ELU(),
-            nn.Linear(in_features=64, out_features=16),
-            nn.ELU(),
-            nn.LayerNorm(16),
-        )
-        # Create Mapping Embedding MLP
-        self.MappingEmbeddingMLP = nn.Sequential(
-            nn.Linear(in_features=64, out_features=256),
+            nn.Linear(in_features=768, out_features=256),
             nn.ELU(),
             nn.Linear(in_features=256, out_features=128),
             nn.ELU(),
@@ -169,14 +150,11 @@ class AME2CriticModel(MLPModel):
         latent_1d = super().get_latent(obs) # (B, 88)
         proprioception_embedding = self.ProprioceptionEncoder(latent_1d)    # (B, 64)
         # Process 2D observation groups with CNNs
-        latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:,2:3,:,:]) for obs_group in self.obs_groups_2d] # [(B, 48, 4, 6),]
-        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=1)   # (B, 1152)
-        local_embedding = self.local_embedding_mlp(local_embedding) # (B, 48)
-        cnn_obs = obs["actor_map"].flatten(start_dim=1) # (B, 819)
-        positional_embedding = self.MappingMLP(cnn_obs) # (B, 16)
-        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1)) # (B, 64)
+        latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:,2:3,:,:]) for obs_group in self.obs_groups_2d] # [(B, 32, 4, 6),]
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=1)   # (B, 768)
+        local_embedding = self.local_embedding_mlp(local_embedding) # (B, 64)
         # Experts
-        future = torch.cat([proprioception_embedding, pointwise_local_features], dim=-1)    # (B, 128)
+        future = torch.cat([proprioception_embedding, local_embedding], dim=-1)    # (B, 128)
         gate_weights = torch.softmax(self.gate(future), dim=-1) # (B, 16)
         expert_output = torch.stack(    # (B, 16, 128)
             [expert(future) for expert in self.experts], dim=1
