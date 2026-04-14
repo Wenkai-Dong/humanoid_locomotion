@@ -13,7 +13,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-from humanoid_locomotion.custom_classes.rl_cfg import RslRlAME1ModelCfg
+from humanoid_locomotion.custom_rsl_rl.rl_cfg import RslRlAME1ModelCfg
 
 from humanoid_locomotion.tasks.velocity.ame_2.mdp.symmetry import h1
 
@@ -28,7 +28,7 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         "critic": ["critic", "critic_map"],
     }
     actor = RslRlAME1ModelCfg(
-        class_name="humanoid_locomotion.custom_classes.models.ame2_actor_model:AME2ActorModel",
+        class_name="humanoid_locomotion.custom_rsl_rl.models.ame2_actor_model:AME2ActorModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -55,7 +55,7 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         ),
     )
     critic = RslRlAME1ModelCfg(
-        class_name="humanoid_locomotion.custom_classes.models.ame2_critic_model:AME2CriticModel",
+        class_name="humanoid_locomotion.custom_rsl_rl.models.ame2_critic_model:AME2CriticModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -73,7 +73,7 @@ class H1TeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         ),
     )
     algorithm = RslRlPpoAlgorithmCfg(
-        class_name= "humanoid_locomotion.custom_classes.algorithms.ppo:PPO",
+        class_name= "humanoid_locomotion.custom_rsl_rl.algorithms.ppo:PPO",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
@@ -100,3 +100,11 @@ class H1StudentPPORunnerCfg(H1TeacherPPORunnerCfg):
 
         self.experiment_name = "ame1_stage2_h1_v0"
         self.algorithm.entropy_coef=0.002
+
+@configclass
+class H1TeacherPPORunnerCfgv1(H1TeacherPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "ame1_stage1_h1_v1"
+        self.actor.class_name = "humanoid_locomotion.custom_rsl_rl.models.ame2_actor_model_v1:AME2ActorModel"

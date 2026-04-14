@@ -30,3 +30,23 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:H1TeacherPPORunnerCfg",
     },
 )
+
+gym.register(
+    id="Velocity-Ame2-Teacher-H1-v1",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.teacher_env_cfg:H1TeacherEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg_v1:H1TeacherPPORunnerCfg",
+    },
+)
+
+gym.register(
+    id="Velocity-Ame2-Teacher-H1-Play-v1",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.teacher_env_cfg:H1TeacherEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg_v1:H1TeacherPPORunnerCfg_PLAY",
+    },
+)

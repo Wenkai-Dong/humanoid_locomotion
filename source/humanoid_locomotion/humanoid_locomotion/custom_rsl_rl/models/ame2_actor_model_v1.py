@@ -6,18 +6,20 @@
 from __future__ import annotations
 
 import copy
+import math
+
 import torch
 import torch.nn as nn
 from tensordict import TensorDict
 from typing import Any
 
 from rsl_rl.models.mlp_model import MLPModel
+from rsl_rl.modules.cnn import CNN
 from rsl_rl.modules import HiddenState
-from humanoid_locomotion.custom_classes.modules.cnn import CNN
-from humanoid_locomotion.custom_classes.modules.mha import MHA
+from humanoid_locomotion.custom_rsl_rl.modules.mha_residual import MHA
 
 
-class DualGateActorModel(MLPModel):
+class AME2ActorModel(MLPModel):
     """CNN-based neural model.
 
     This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
@@ -33,14 +35,13 @@ class DualGateActorModel(MLPModel):
         obs_groups: dict[str, list[str]],
         obs_set: str,
         output_dim: int,
-        hidden_dims: tuple[int] | list[int] = [256, 256, 256],
+        hidden_dims: tuple[int, ...] | list[int] = (256, 256, 256),
         activation: str = "elu",
         obs_normalization: bool = False,
         distribution_cfg: dict | None = None,
         cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
         cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
-        mha_cfg: dict[str, dict] | dict[str, Any] | None = None,
-        linear_cfg: dict[str, dict] | dict[str, Any] | None = None,
+        need_weights: bool = False,
     ) -> None:
         """Initialize the CNN-based model.
 
@@ -50,17 +51,14 @@ class DualGateActorModel(MLPModel):
             obs_set: Observation set to use for this model (e.g., "actor" or "critic").
             output_dim: Dimension of the output.
             hidden_dims: Hidden dimensions of the MLP.
-            cnn_cfg: Configuration of the CNN encoder(s).
-            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
             activation: Activation function of the CNN and MLP.
             obs_normalization: Whether to normalize the observations before feeding them to the MLP.
-            stochastic: Whether the model outputs stochastic or deterministic values.
-            init_noise_std: Initial standard deviation of the stochatic output.
-            noise_std_type: Whether the standard deviation is defined as a "scalar" or in "log" space.
-            state_dependent_std: Whether the standard deviation is state dependent.
+            distribution_cfg: Configuration dictionary for the output distribution.
+            cnn_cfg: Configuration of the CNN encoder(s).
+            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
         """
         # Resolve observation groups and dimensions
-        obs_groups_1d, obs_dim_1d = self._get_obs_dim(obs, obs_groups, obs_set)
+        self.obs_groups, self.obs_dim = self._get_obs_dim(obs, obs_groups, obs_set)
 
         # Initialize the parent MLP model
         super().__init__(
@@ -73,26 +71,15 @@ class DualGateActorModel(MLPModel):
             obs_normalization,
             distribution_cfg,
         )
+        # Initialize the weights of the MLP
+        self.mlp.init_weights(
+            [2**0.5, None, 2**0.5, None, 2**0.5, None, 0.01]
+        )
 
         # Create Proprioception Encoder
         self.ProprioceptionEncoder = nn.Sequential(
-            nn.Linear(in_features=94, out_features=256),
+            nn.Linear(in_features=self.obs_dim, out_features=64),
             nn.ELU(),
-            nn.Linear(in_features=256, out_features=128),
-            nn.ELU(),
-            nn.Linear(in_features=128, out_features=64),
-            nn.ELU(),
-        )
-
-        # Create Self Gated-Attention
-        self.SelfGatedAttention = MHA(
-            input_dim_q=64,
-            input_channels_q=2,
-            input_dim_kv=64,
-            num_heads=16,
-            attention_type="self",
-            activation="sigmoid",
-            flatten=False
         )
 
         # Create or validate CNN encoders
@@ -114,7 +101,7 @@ class DualGateActorModel(MLPModel):
             for idx, obs_group in enumerate(self.obs_groups_2d):
                 cnns[obs_group] = CNN(
                     input_dim=self.obs_dims_2d[idx],
-                    input_channels=self.obs_channels_2d[idx]-2,
+                    input_channels=self.obs_channels_2d[idx] - 2,
                     **cnn_cfg[obs_group],
                 )
 
@@ -122,75 +109,78 @@ class DualGateActorModel(MLPModel):
         for cnn in cnns.values():
             self.cnn_latent_channels = cnn.output_channels  # type: ignore
 
+        # Register CNN encoders
+        if isinstance(cnns, nn.ModuleDict):
+            self.cnns = cnns
+        else:
+            self.cnns = nn.ModuleDict(cnns)
+        # Initialize the weights of the CNN
+        for cnn in self.cnns.values():
+            cnn.init_weights()
+
         # Create Mapping MLP
         self.MappingMLP = nn.Sequential(
             nn.Linear(in_features=3, out_features=32),
             nn.ELU(),
             nn.Linear(in_features=32, out_features=16),
             nn.ELU(),
+            nn.LayerNorm(16),
         )
-        # Create Dilated Convolution
-        self.DilatedCon2d = nn.Sequential(
-            nn.Conv2d(
-                in_channels=1,
-                out_channels=8,
-                kernel_size=5,
-                stride=1,
-                padding=4,
-                dilation=2,
-            ),
-            nn.LayerNorm(
-                normalized_shape=(8, 13, 21)
-            ),
+        # Create Mapping Embedding MLP
+        self.MappingEmbeddingMLP = nn.Sequential(
+            nn.Linear(in_features=64, out_features=96),
             nn.ELU(),
-            nn.Conv2d(
-                in_channels=8,
-                out_channels=16,
-                kernel_size=5,
-                stride=1,
-                padding=4,
-                dilation=2,
-            ),
-            nn.LayerNorm(
-                normalized_shape=(16, 13, 21)
-            ),
+        )
+        # Create MLP & MaxPool
+        self.MLPMaxPool = nn.Sequential(    # global_features, _ = torch.max(x, dim=1, keepdim=True)
+            nn.Linear(in_features=96, out_features=64),
+            nn.ELU(),
+        )
+        # Create Proprioception Embedding MLP
+        self.ProprioceptionEmbeddingMLP = nn.Sequential(
+            nn.Linear(in_features=128, out_features=96),
             nn.ELU(),
         )
 
+        # Create Pre-LayerNorm
+        self.q_norm = nn.LayerNorm(96)
+        self.kv_norm = nn.LayerNorm(96)
         # Create MHA encoders
-        self.mha = MHA(
-            input_dim_q=64,
-            input_channels_q=2,
-            input_dim_kv=64,
-            **mha_cfg,
+        self.mha = torch.nn.MultiheadAttention(
+            embed_dim=96,
+            num_heads=32,
+            batch_first=True,
         )
-
-        # Register CNN encoders
-        if isinstance(cnns, nn.ModuleDict):
-            self.cnns = cnns
-        else:
-            self.cnns = nn.ModuleDict(cnns)
-
+        # Create global_features & proprioception_embedding Norm
+        self.global_features_nrom = nn.LayerNorm(64)
+        self.proprioception_embedding_norm = nn.LayerNorm(64)
+        # attn_output_weights
+        self.need_weights = need_weights
+        self.attn_output_weights = None
 
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ) -> torch.Tensor:
         # Concatenate 1D observation groups and normalize
-        latent_1d = super().get_latent(obs)
-        prip = latent_1d[:,:69].unsqueeze(1).expand(-1,2,-1)
-        priv = latent_1d[:,69:].reshape(-1,2,25)
-        dual_prop = torch.cat([prip, priv], dim=-1)
-        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
-        # Process 2D observation groups with Dual-Gate Encoder
-        latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:,2:3,:,:]) for obs_group in self.obs_groups_2d]
-        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0,2,1)
-        cnn_obs = obs["actor_map"]
-        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0,2,1))
-        dilated_embedding = self.DilatedCon2d(cnn_obs[:,2:3,:,:]).flatten(start_dim=2).permute(0,2,1)
-        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
-        weighted_local_features = self.mha(prip_features, mapping_features)
+        latent_1d = super().get_latent(obs) # (B, 69)
+        latent_1d = latent_1d.unsqueeze(1)  # (B, 1, 69)
+        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)    # (B, 1, 64)
+        # Process 2D observation groups with AME-2 Encoder
+        latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:,2:3,:,:]) for obs_group in self.obs_groups_2d] # [(B, 48, 13, 21),]
+        local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0,2,1)    # (B, 273, 48)
+        cnn_obs = obs["actor_map"].flatten(start_dim=2).permute(0,2,1)  # (B, 273, 3)
+        positional_embedding = self.MappingMLP(cnn_obs) # (B, 273, 16)
+        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1)) # (B, 273, 96)
+        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0] # (B, 1, 64)
+        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1)) # (B, 1, 96)
+        query = self.q_norm(query)
+        key_value = self.kv_norm(pointwise_local_features)
+        weighted_local_features, attn_output_weights = self.mha(query, key_value, key_value, need_weights=self.need_weights)
+        # Normalization futures
+        proprioception_embedding = self.proprioception_embedding_norm(proprioception_embedding)
+        global_features = self.global_features_nrom(global_features)
         # Concatenate 1D and AME2 latents
-        return torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
+        return torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""
@@ -232,23 +222,28 @@ class DualGateActorModel(MLPModel):
         return obs_groups_1d, obs_dim_1d
 
     def _get_latent_dim(self) -> int:
-        return int(256)
+        return int(224)
 
 
 class _TorchAME1Model(nn.Module):
     """Exportable CNN model for JIT."""
 
-    def __init__(self, model: DualGateActorModel) -> None:
+    def __init__(self, model: AME2ActorModel) -> None:
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
+        self.mlp = copy.deepcopy(model.mlp)
         # Convert ModuleDict to ModuleList for ordered iteration
         self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
-        self.SelfGatedAttention = copy.deepcopy(model.SelfGatedAttention)
         self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
         self.MappingMLP = copy.deepcopy(model.MappingMLP)
-        self.DilatedCon2d = copy.deepcopy(model.DilatedCon2d)
+        self.MappingEmbeddingMLP = copy.deepcopy(model.MappingEmbeddingMLP)
+        self.MLPMaxPool = copy.deepcopy(model.MLPMaxPool)
+        self.ProprioceptionEmbeddingMLP = copy.deepcopy(model.ProprioceptionEmbeddingMLP)
+        self.q_norm = copy.deepcopy(model.q_norm)
+        self.kv_norm = copy.deepcopy(model.kv_norm)
         self.mha = copy.deepcopy(model.mha)
-        self.mlp = copy.deepcopy(model.mlp)
+        self.global_features_nrom = copy.deepcopy(model.global_features_nrom)
+        self.proprioception_embedding_norm = copy.deepcopy(model.proprioception_embedding_norm)
         if model.distribution is not None:
             self.deterministic_output = model.distribution.as_deterministic_output_module()
         else:
@@ -256,22 +251,24 @@ class _TorchAME1Model(nn.Module):
 
     def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
-        prip = latent_1d[:, :69].unsqueeze(1).expand(-1, 2, -1)
-        priv = latent_1d[:, 69:].reshape(-1, 2, 25)
-        dual_prop = torch.cat([prip, priv], dim=-1)
-        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
-        # Process 2D observation groups with Dual-Gate Encoder
+        latent_1d = latent_1d.unsqueeze(1)
+        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)
+
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
-            latent_cnn_list.append(cnn(obs_2d[i][:, 2:3, :, :]))
+            latent_cnn_list.append(cnn(obs_2d[i][:,2:3,:,:]))
         local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
-        cnn_obs = torch.cat(obs_2d, dim=-1)
-        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0, 2, 1))
-        dilated_embedding = self.DilatedCon2d(cnn_obs[:, 2:3, :, :]).flatten(start_dim=2).permute(0, 2, 1)
-        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
-        weighted_local_features = self.mha(prip_features, mapping_features)
-        # Concatenate 1D and AME2 latents
-        latent = torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
+        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2).permute(0,2,1)
+        positional_embedding = self.MappingMLP(cnn_obs)
+        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1))
+        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0]
+        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1))
+        query = self.q_norm(query)
+        key_value = self.kv_norm(pointwise_local_features)
+        weighted_local_features, attn_output_weights = self.mha(query, key_value, key_value, need_weights=self.need_weights)
+        proprioception_embedding = self.proprioception_embedding_norm(proprioception_embedding)
+        global_features = self.global_features_nrom(global_features)
+        latent = torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
 
         out = self.mlp(latent)
         return self.deterministic_output(out)
@@ -284,18 +281,23 @@ class _TorchAME1Model(nn.Module):
 class _OnnxAME1Model(nn.Module):
     """Exportable CNN model for ONNX."""
 
-    def __init__(self, model: DualGateActorModel, verbose: bool) -> None:
+    def __init__(self, model: AME2ActorModel, verbose: bool) -> None:
         super().__init__()
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
+        self.mlp = copy.deepcopy(model.mlp)
         # Convert ModuleDict to ModuleList for ordered iteration
         self.ProprioceptionEncoder = copy.deepcopy(model.ProprioceptionEncoder)
-        self.SelfGatedAttention = copy.deepcopy(model.SelfGatedAttention)
         self.cnns = nn.ModuleList([copy.deepcopy(model.cnns[g]) for g in model.obs_groups_2d])
         self.MappingMLP = copy.deepcopy(model.MappingMLP)
-        self.DilatedCon2d = copy.deepcopy(model.DilatedCon2d)
+        self.MappingEmbeddingMLP = copy.deepcopy(model.MappingEmbeddingMLP)
+        self.MLPMaxPool = copy.deepcopy(model.MLPMaxPool)
+        self.ProprioceptionEmbeddingMLP = copy.deepcopy(model.ProprioceptionEmbeddingMLP)
+        self.q_norm = copy.deepcopy(model.q_norm)
+        self.kv_norm = copy.deepcopy(model.kv_norm)
         self.mha = copy.deepcopy(model.mha)
-        self.mlp = copy.deepcopy(model.mlp)
+        self.global_features_nrom = copy.deepcopy(model.global_features_nrom)
+        self.proprioception_embedding_norm = copy.deepcopy(model.proprioception_embedding_norm)
         if model.distribution is not None:
             self.deterministic_output = model.distribution.as_deterministic_output_module()
         else:
@@ -308,22 +310,24 @@ class _OnnxAME1Model(nn.Module):
 
     def forward(self, obs_1d: torch.Tensor, *obs_2d: torch.Tensor) -> torch.Tensor:
         latent_1d = self.obs_normalizer(obs_1d)
-        prip = latent_1d[:, :69].unsqueeze(1).expand(-1, 2, -1)
-        priv = latent_1d[:, 69:].reshape(-1, 2, 25)
-        dual_prop = torch.cat([prip, priv], dim=-1)
-        prip_features = self.SelfGatedAttention(self.ProprioceptionEncoder(dual_prop))
-        # Process 2D observation groups with Dual-Gate Encoder
+        latent_1d = latent_1d.unsqueeze(1)
+        proprioception_embedding = self.ProprioceptionEncoder(latent_1d)
+
         latent_cnn_list = []
         for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
             latent_cnn_list.append(cnn(obs_2d[i][:, 2:3, :, :]))
         local_embedding = torch.cat(latent_cnn_list, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
-        cnn_obs = torch.cat(obs_2d, dim=-1)
-        positional_embedding = self.MappingMLP(cnn_obs.flatten(start_dim=2).permute(0, 2, 1))
-        dilated_embedding = self.DilatedCon2d(cnn_obs[:, 2:3, :, :]).flatten(start_dim=2).permute(0, 2, 1)
-        mapping_features = torch.cat([local_embedding, positional_embedding, dilated_embedding], dim=-1)
-        weighted_local_features = self.mha(prip_features, mapping_features)
-        # Concatenate 1D and AME2 latents
-        latent = torch.cat([prip_features.flatten(1), weighted_local_features.flatten(1)], dim=-1)
+        cnn_obs = torch.cat(obs_2d, dim=-1).flatten(start_dim=2).permute(0, 2, 1)
+        positional_embedding = self.MappingMLP(cnn_obs)
+        pointwise_local_features = self.MappingEmbeddingMLP(torch.cat([positional_embedding, local_embedding], dim=-1))
+        global_features = self.MLPMaxPool(pointwise_local_features).max(dim=1, keepdim=True)[0]
+        query = self.ProprioceptionEmbeddingMLP(torch.cat([proprioception_embedding, global_features], dim=-1))
+        query = self.q_norm(query)
+        key_value = self.kv_norm(pointwise_local_features)
+        weighted_local_features, attn_output_weights = self.mha(query, key_value, key_value, need_weights=self.need_weights)
+        proprioception_embedding = self.proprioception_embedding_norm(proprioception_embedding)
+        global_features = self.global_features_nrom(global_features)
+        latent = torch.cat([proprioception_embedding, global_features, weighted_local_features], dim=-1).squeeze(1)
 
         out = self.mlp(latent)
         return self.deterministic_output(out)

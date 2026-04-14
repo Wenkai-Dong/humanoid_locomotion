@@ -13,7 +13,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-from humanoid_locomotion.custom_classes.rl_cfg import RslRlAME1ModelCfg
+from humanoid_locomotion.custom_rsl_rl.rl_cfg import RslRlAME1ModelCfg
 
 from humanoid_locomotion.tasks.velocity.ame_1.mdp.symmetry import h1
 
@@ -63,7 +63,7 @@ class H1Stage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         stochastic=False,
     )
     algorithm = RslRlPpoAlgorithmCfg(
-        class_name= "humanoid_locomotion.custom_classes.algorithms.ppo:PPO",
+        class_name= "humanoid_locomotion.custom_rsl_rl.algorithms.ppo:PPO",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,

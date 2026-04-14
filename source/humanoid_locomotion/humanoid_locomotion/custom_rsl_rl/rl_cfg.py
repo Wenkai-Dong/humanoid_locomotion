@@ -10,7 +10,7 @@ from typing import Literal
 
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl.rl_cfg import RslRlMLPModelCfg
+from isaaclab_rl.rsl_rl.rl_cfg import RslRlMLPModelCfg, RslRlCNNModelCfg
 
 #########################
 # Model configurations #
@@ -21,7 +21,7 @@ from isaaclab_rl.rsl_rl.rl_cfg import RslRlMLPModelCfg
 class RslRlAME1ModelCfg(RslRlMLPModelCfg):
     """Configuration for CNN model."""
 
-    class_name: str = "humanoid_locomotion.custom_classes.models.ame1_model:AME1Model"
+    class_name: str = "humanoid_locomotion.custom_rsl_rl.models.ame1_model:AME1Model"
     """The model class name. Default is AME1Model."""
 
     @configclass
@@ -96,4 +96,12 @@ class RslRlAME1ModelCfg(RslRlMLPModelCfg):
     linear_cfg: LinearCfg = None
     """The configuration for the MHA(s)."""
 
+@configclass
+class RslRlAME2ActorModelCfg(RslRlCNNModelCfg):
+    """Configuration for CNN model."""
+
+    class_name: str = "humanoid_locomotion.custom_rsl_rl.models.ame2_actor_model_v1:AME2ActorModel"
+    """The model class name. Default is AME2ActorModel."""
+
+    need_weights: bool = False
 

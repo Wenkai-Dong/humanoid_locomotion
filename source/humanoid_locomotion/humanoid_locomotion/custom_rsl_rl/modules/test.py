@@ -1,6 +1,6 @@
 from torch.nn.attention import sdpa_kernel, SDPBackend
 
-import mha
+import mha_residual
 import torch
 import time
 input_dim_1d = 64

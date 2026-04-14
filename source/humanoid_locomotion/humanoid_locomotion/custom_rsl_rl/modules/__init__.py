@@ -5,7 +5,7 @@
 
 """Building blocks for neural models."""
 
-from .mha import MHA
+from .mha_residual import MHA
 from .cnn import CNN
 
 __all__ = [

@@ -13,8 +13,8 @@ from typing import Any
 
 from rsl_rl.models.mlp_model import MLPModel
 from rsl_rl.modules import HiddenState
-from humanoid_locomotion.custom_classes.modules.cnn import CNN
-from humanoid_locomotion.custom_classes.modules.mha import MHA
+from humanoid_locomotion.custom_rsl_rl.modules.cnn import CNN
+from humanoid_locomotion.custom_rsl_rl.modules.mha_residual import MHA
 
 
 class AME1Model(MLPModel):
