@@ -116,9 +116,7 @@ class AME2CriticModel(MLPModel):
         self.local_embedding_mlp = nn.Sequential(
             nn.Linear(in_features=768, out_features=256),
             nn.ELU(),
-            nn.Linear(in_features=256, out_features=128),
-            nn.ELU(),
-            nn.Linear(in_features=128, out_features=64),
+            nn.Linear(in_features=256, out_features=64),
             nn.ELU(),
         )
 
@@ -138,9 +136,7 @@ class AME2CriticModel(MLPModel):
         self.gate = nn.Sequential(
             nn.Linear(128,256),
             nn.ReLU(),
-            nn.Linear(256,128),
-            nn.ReLU(),
-            nn.Linear(128,16),
+            nn.Linear(256,16),
         )
 
     def get_latent(
@@ -156,7 +152,7 @@ class AME2CriticModel(MLPModel):
         # Experts
         future = torch.cat([proprioception_embedding, local_embedding], dim=-1)    # (B, 128)
         gate_weights = torch.softmax(self.gate(future), dim=-1) # (B, 16)
-        expert_output = torch.stack(    # (B, 16, 128)
+        expert_output = torch.stack(    # (B, 16, 64)
             [expert(future) for expert in self.experts], dim=1
         )
         # Concatenate 1D and CNN latents
@@ -202,7 +198,7 @@ class AME2CriticModel(MLPModel):
         return obs_groups_1d, obs_dim_1d
 
     def _get_latent_dim(self) -> int:
-        return 128
+        return 64
 
 
 class _TorchCNNModel(nn.Module):
