@@ -12,7 +12,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
+# from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
 
 
 @configclass
@@ -22,8 +22,8 @@ class G1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     save_interval = 50
     experiment_name = "dualgate_flat_g1_v0"
     obs_groups = {
-        "actor": ["actor", "actor_map"],
-        "critic": ["critic", "critic_map"],
+        "actor": ["actor",],
+        "critic": ["critic",],
     }
     actor = RslRlMLPModelCfg(
         hidden_dims=[512, 256, 128],

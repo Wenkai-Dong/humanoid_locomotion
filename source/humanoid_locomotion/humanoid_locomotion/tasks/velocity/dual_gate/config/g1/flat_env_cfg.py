@@ -22,8 +22,8 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         # no height scan
         self.scene.actor_height_scanner = None
         self.scene.critic_height_scanner = None
-        self.observations.ActorMapCfg = None
-        self.observations.CriticMapCfg = None
+        self.observations.actor_map = None
+        self.observations.critic_map = None
         # no terrain curriculum
         self.curriculum.terrain_levels = None
 
