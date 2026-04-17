@@ -5,3 +5,5 @@ from .observations import *  # noqa: F401
 from .rewards import *  # noqa: F401
 from .curriculums import *  # noqa: F401
 from .terminations import * # noqa: F401
+
+from .recorders import *    # noqa:F401
