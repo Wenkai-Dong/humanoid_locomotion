@@ -6,6 +6,7 @@
 from isaaclab.utils import configclass
 
 from .rough_env_cfg import G1RoughEnvCfg
+from humanoid_locomotion.tasks.velocity.dual_gate import mdp
 
 
 @configclass
