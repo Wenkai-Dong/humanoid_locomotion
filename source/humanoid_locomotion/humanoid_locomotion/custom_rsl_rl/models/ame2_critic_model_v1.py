@@ -198,7 +198,7 @@ class AME2CriticModel(MLPModel):
         return obs_groups_1d, obs_dim_1d
 
     def _get_latent_dim(self) -> int:
-        return 64
+        return 128
 
 
 class _TorchCNNModel(nn.Module):
