@@ -26,4 +26,4 @@ def elevation_map(env: ManagerBasedEnv, sensor_cfg: SceneEntityCfg, size: tuple[
     relative_pos_s = quat_apply_inverse(sensor_quat_expanded, relative_pos_w)
     # Z-axis height: height = hit_point_z - sensor_height + offset + noise
     relative_pos_s[..., 2] += offset + (torch.rand_like(relative_pos_s[..., 2]) - 0.5) * 2 * z_noise
-    return relative_pos_s.reshape(relative_pos_w.shape[0], size[0], size[1], 3)
+    return relative_pos_s.reshape(relative_pos_w.shape[0], size[0], size[1], 3).permute(0, 3, 1, 2).contiguous()

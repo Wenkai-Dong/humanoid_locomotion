@@ -120,7 +120,7 @@ class CommandsCfg:
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
             lin_vel_x=(-0.5, 1.5), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
-        debug_vis=True
+        debug_vis=False
     )
 
 
@@ -373,7 +373,7 @@ class RewardsCfg:
     # g1-29dof else joint
     wrist_joint_deviation_penalty = RewTerm(    # 6
         func=mdp.joint_deviation_l1,
-        weight=-5.0,
+        weight=-10.0,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
         },
@@ -390,7 +390,9 @@ class TerminationsCfg:
         func=mdp.illegal_contact,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[
-                "torso_link", ".*_shoulder_.*_link", ".*_hip_.*_link", ".*_knee_link", ".*_elbow_link", "waist_.*_link", "pelvis",
+                "torso_link",
+                "pelvis",
+                ".*_knee_link",
             ]),
             "threshold": 1.0,
         },

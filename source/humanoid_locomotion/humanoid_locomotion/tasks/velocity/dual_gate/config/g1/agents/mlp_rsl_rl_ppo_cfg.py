@@ -12,7 +12,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-# from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
+from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
 
 
 @configclass
@@ -40,7 +40,7 @@ class G1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.004,
+        entropy_coef=0.005,
         num_learning_epochs=4,
         num_mini_batches=3,
         learning_rate=1.0e-3,
@@ -49,4 +49,27 @@ class G1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
+    )
+
+
+@configclass
+class G1FlatPPORunnerCfgWithSymmetryCfg(G1FlatPPORunnerCfg):
+    """Configuration for the PPO agent with symmetry augmentation."""
+
+    algorithm = RslRlPpoAlgorithmCfg(
+        value_loss_coef=1.0,
+        use_clipped_value_loss=True,
+        clip_param=0.2,
+        entropy_coef=0.005,
+        num_learning_epochs=4,
+        num_mini_batches=3,
+        learning_rate=1.0e-3,
+        schedule="adaptive",
+        gamma=0.99,
+        lam=0.95,
+        desired_kl=0.01,
+        max_grad_norm=1.0,
+        symmetry_cfg=RslRlSymmetryCfg(
+            use_data_augmentation=True, data_augmentation_func=g1.compute_symmetric_states
+        ),
     )
