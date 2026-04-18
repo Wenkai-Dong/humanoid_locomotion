@@ -12,7 +12,7 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-# from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
+from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
 
 
 @configclass

@@ -22,6 +22,7 @@ __all__ = ["compute_symmetric_states"]
 
 @torch.no_grad()
 def compute_symmetric_states(
+    env: ManagerBasedRLEnv,
     obs: TensorDict | None = None,
     actions: torch.Tensor | None = None,
 ):
@@ -56,13 +57,13 @@ def compute_symmetric_states(
         obs_aug["critic"][:batch_size] = obs["critic"][:]
         # -- left-right
         obs_aug["critic"][batch_size : 2 * batch_size] = _transform_critic_obs_left_right(obs["critic"])
-        if obs["actor_map"] is not None:
+        if obs.get("actor_map") is not None:
             # actor map observation group
             # -- original
             obs_aug["actor_map"][:batch_size] = obs["actor_map"][:]
             # -- left-right
             obs_aug["actor_map"][batch_size: 2 * batch_size] = _transform_map_obs_left_right(obs["actor_map"])
-        if obs["critic_map"] is not None:
+        if obs.get("critic_map") is not None:
             # critic map observation group
             # -- original
             obs_aug["critic_map"][:batch_size] = obs["critic_map"][:]
@@ -128,10 +129,6 @@ def _transform_critic_obs_left_right(obs: torch.Tensor) -> torch.Tensor:
     obs[:, 41:70] = _switch_g1_joints_left_right(obs[:, 41:70])
     # last actions
     obs[:, 70:99] = _switch_g1_joints_left_right(obs[:, 70:99])
-
-    # note: this is hard-coded for grid-pattern of ordering "xy" and size (1.6, 1.0)
-    if "height_scan" in env.observation_manager.active_terms["policy"]:
-        obs[:, 48:235] = obs[:, 48:235].view(-1, 11, 17).flip(dims=[1]).view(-1, 11 * 17)
 
     return obs
 

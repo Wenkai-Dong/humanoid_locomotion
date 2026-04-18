@@ -18,6 +18,7 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.mlp_rsl_rl_ppo_cfg:G1FlatPPORunnerCfg",
+        "rsl_rl_with_symmetry_cfg_entry_point": f"{agents.__name__}.mlp_rsl_rl_ppo_cfg:G1FlatPPORunnerCfgWithSymmetryCfg",
     },
 )
 gym.register(
