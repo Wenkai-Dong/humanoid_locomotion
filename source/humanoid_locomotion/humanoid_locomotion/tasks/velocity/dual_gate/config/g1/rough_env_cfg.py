@@ -120,6 +120,7 @@ class CommandsCfg:
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
             lin_vel_x=(-0.5, 1.5), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
+        debug_vis=True
     )
 
 
@@ -306,14 +307,21 @@ class RewardsCfg:
         func=mdp.joint_acc_l2,
         weight=-1.0e-6,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_wrist_.*_joint"]),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint"]),
+        },
+    )
+    shoulder_pitch_joint_acceleration_penalty = RewTerm(
+        func=mdp.joint_acc_l2,
+        weight=-1.0e-4,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"]),
         },
     )
     joint_torque_penalty = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5.0e-5,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_pitch_joint", ".*_knee_joint"])
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_knee_joint"])
         },
     )
     joint_position_limits = RewTerm(func=mdp.joint_pos_limits, weight=-10.0)
@@ -334,7 +342,7 @@ class RewardsCfg:
         func=mdp.joint_deviation_l2,
         weight=-0.5,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint", ".*_wrist_.*_joint"]),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint"]),
             "threshold": 0.25,
         },
     )
@@ -360,6 +368,14 @@ class RewardsCfg:
         params={
             "command_name": "base_velocity",
             "threshold": 0.05,
+        },
+    )
+    # g1-29dof else joint
+    wrist_joint_deviation_penalty = RewTerm(    # 6
+        func=mdp.joint_deviation_l1,
+        weight=-5.0,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
         },
     )
 

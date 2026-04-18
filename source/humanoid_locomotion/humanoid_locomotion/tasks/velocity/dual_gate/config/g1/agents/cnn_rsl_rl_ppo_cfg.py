@@ -16,25 +16,49 @@ from isaaclab_rl.rsl_rl import (
 
 
 @configclass
-class G1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 30000
     save_interval = 50
-    experiment_name = "dualgate_flat_g1_v0"
+    experiment_name = "dualgate_rough_g1_v0"
     obs_groups = {
-        "actor": ["actor",],
-        "critic": ["critic",],
+        "actor": ["actor", "actor_map"],
+        "critic": ["critic", "critic_map"],
     }
-    actor = RslRlMLPModelCfg(
+    actor = RslRlCNNModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="log"),
+        cnn_cfg=RslRlCNNModelCfg.cnn_cfg(
+            output_channels=[16,48],
+            kernel_size=5,
+            stride=1,
+            dilation=1,
+            padding="zeros",
+            norm="layer",
+            activation="elu",
+            max_pool=False,
+            global_pool="max",
+            flatten=True,
+        )
     )
-    critic = RslRlMLPModelCfg(
+    critic = RslRlCNNModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
+        cnn_cfg=RslRlCNNModelCfg.cnn_cfg(
+            output_channels=[16, 48],
+            kernel_size=5,
+            stride=1,
+            dilation=1,
+            padding="zeros",
+            norm="layer",
+            activation="elu",
+            max_pool=False,
+            global_pool="max",
+            flatten=True,
+        )
     )
     algorithm = RslRlPpoAlgorithmCfg(
         value_loss_coef=1.0,
