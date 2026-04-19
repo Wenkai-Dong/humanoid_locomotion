@@ -406,11 +406,11 @@ class TerminationsCfg:
         func=mdp.root_height_below_minimum_terrain,
         params={"minimum_height": 0.2, "sensor_cfg": SceneEntityCfg("base_height")}
     )
-    base_contact = DoneTerm(
-        func=mdp.illegal_contact,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_knee_link"]), "threshold": 1.0}
-    )
     base_height = DoneTerm(func=mdp.root_height_below_minimum, params={"minimum_height": -3.0})
+    # base_contact = DoneTerm(
+    #     func=mdp.illegal_contact,
+    #     params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_knee_link"]), "threshold": 1.0}
+    # )
 
 
 @configclass
