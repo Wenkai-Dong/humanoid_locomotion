@@ -165,7 +165,7 @@ class ObservationsCfg:
 
         def __post_init__(self):
             self.enable_corruption = False
-            self.concatenate_terms = False
+            self.concatenate_terms = True
 
     # observation groups
     actor: ActorCfg = ActorCfg()
@@ -201,7 +201,7 @@ class ObservationsCfg:
 
         def __post_init__(self):
             self.enable_corruption = False
-            self.concatenate_terms = False
+            self.concatenate_terms = True
 
     # privileged observations
     critic: CriticCfg = CriticCfg()
@@ -342,7 +342,7 @@ class RewardsCfg:
         func=mdp.joint_deviation_l2,
         weight=-0.5,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint"]),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint", ".*_wrist_.*_joint"]),
             "threshold": 0.25,
         },
     )

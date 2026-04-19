@@ -46,6 +46,7 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1RoughEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "rsl_rl_with_symmetry_cfg_entry_point": f"{agents.__name__}.cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
     },
 )
 gym.register(
