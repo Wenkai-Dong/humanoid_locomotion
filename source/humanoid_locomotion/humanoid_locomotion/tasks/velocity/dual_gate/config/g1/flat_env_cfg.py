@@ -33,7 +33,8 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
     def __post_init__(self) -> None:
         # post init of parent
         super().__post_init__()
-
+        # Increase the length_s of episode
+        self.episode_length_s = 40.0
         # make a smaller scene for play
         self.scene.num_envs = 64
 

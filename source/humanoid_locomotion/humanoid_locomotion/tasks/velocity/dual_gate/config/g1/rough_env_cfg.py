@@ -310,13 +310,13 @@ class RewardsCfg:
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint"]),
         },
     )
-    shoulder_pitch_joint_acceleration_penalty = RewTerm(
-        func=mdp.joint_acc_l2,
-        weight=-1.0e-4,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"]),
-        },
-    )
+    # shoulder_pitch_joint_acceleration_penalty = RewTerm(
+    #     func=mdp.joint_acc_l2,
+    #     weight=-1.0e-4,
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"]),
+    #     },
+    # )
     joint_torque_penalty = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5.0e-5,
@@ -385,19 +385,24 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
 
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    base_height = DoneTerm(func=mdp.root_height_below_minimum, params={"minimum_height": -3})
+    # base_height = DoneTerm(func=mdp.root_height_below_minimum, params={"minimum_height": -3})
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[
-                "torso_link",
-                "pelvis",
-                ".*_knee_link",
-            ]),
-            "threshold": 1.0,
-        },
+            "sensor_cfg": SceneEntityCfg(
+                "contact_forces",
+                body_names=[
+                    "torso_link",
+                    ".*_shoulder_.*_link",
+                    ".*_hip_.*_link",
+                    ".*_knee_link",
+                    ".*_elbow_link",
+                    "waist_.*_link",
+                    "pelvis",
+                ]
+                # body_names=["torso_link"]
+            ), "threshold": 1.0},
     )
-    # bad_orientation = DoneTerm(func=mdp.bad_orientation, params={"limit_angle": 0.8})
 
 
 @configclass
@@ -456,6 +461,7 @@ class G1RoughEnvCfg(ManagerBasedRLEnvCfg):
 class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
     def __post_init__(self):
         super().__post_init__()
+        self.episode_length_s = 40.0
         self.scene.num_envs = 64
         self.scene.terrain.max_init_terrain_level = None
 
