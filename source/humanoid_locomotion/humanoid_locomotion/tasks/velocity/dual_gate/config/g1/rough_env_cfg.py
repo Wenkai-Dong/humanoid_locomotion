@@ -371,13 +371,13 @@ class RewardsCfg:
         },
     )
     # g1-29dof else joint
-    wrist_joint_deviation_penalty = RewTerm(    # 6
-        func=mdp.joint_deviation_l1,
-        weight=-10.0,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
-        },
-    )
+    # wrist_joint_deviation_penalty = RewTerm(    # 6
+    #     func=mdp.joint_deviation_l1,
+    #     weight=-10.0,
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
+    #     },
+    # )
 
 
 @configclass
