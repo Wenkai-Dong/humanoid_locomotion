@@ -90,6 +90,22 @@ class RobotSceneCfg(InteractiveSceneCfg):
             "z": (0.0, 0.0),
         }
     )
+    base_height = RayCasterCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/torso_link",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20)),
+        ray_alignment="yaw",
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[0.2, 0.4]),
+        debug_vis=True,
+        mesh_prim_paths=["/World/ground"],
+        update_period=0.0,
+        history_length=0,
+        drift_range=(-0.0, 0.0),
+        ray_cast_drift_range={
+            "x": (0.0, 0.0),
+            "y": (0.0, 0.0),
+            "z": (0.0, 0.0),
+        }
+    )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     # lights
     sky_light = AssetBaseCfg(
@@ -310,13 +326,13 @@ class RewardsCfg:
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint"]),
         },
     )
-    # shoulder_pitch_joint_acceleration_penalty = RewTerm(
-    #     func=mdp.joint_acc_l2,
-    #     weight=-1.0e-4,
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"]),
-    #     },
-    # )
+    shoulder_pitch_joint_acceleration_penalty = RewTerm(
+        func=mdp.joint_acc_l2,
+        weight=-1.0e-4,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"]),
+        },
+    )
     joint_torque_penalty = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5.0e-5,
@@ -373,7 +389,7 @@ class RewardsCfg:
     # g1-29dof else joint
     # wrist_joint_deviation_penalty = RewTerm(    # 6
     #     func=mdp.joint_deviation_l1,
-    #     weight=-10.0,
+    #     weight=-5.0,
     #     params={
     #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
     #     },
@@ -385,24 +401,16 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
 
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    # base_height = DoneTerm(func=mdp.root_height_below_minimum, params={"minimum_height": -3})
+    bad_orientation = DoneTerm(func=mdp.bad_orientation, params={"limit_angle": 0.8})
+    base_height_terrain = DoneTerm(
+        func=mdp.root_height_below_minimum_terrain,
+        params={"minimum_height": 0.2, "sensor_cfg": SceneEntityCfg("base_height")}
+    )
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
-        params={
-            "sensor_cfg": SceneEntityCfg(
-                "contact_forces",
-                body_names=[
-                    "torso_link",
-                    ".*_shoulder_.*_link",
-                    ".*_hip_.*_link",
-                    ".*_knee_link",
-                    ".*_elbow_link",
-                    "waist_.*_link",
-                    "pelvis",
-                ]
-                # body_names=["torso_link"]
-            ), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_knee_link"]), "threshold": 1.0}
     )
+    base_height = DoneTerm(func=mdp.root_height_below_minimum, params={"minimum_height": -3.0})
 
 
 @configclass

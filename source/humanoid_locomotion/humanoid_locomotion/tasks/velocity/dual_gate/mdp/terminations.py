@@ -21,6 +21,19 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
+def root_height_below_minimum_terrain(
+    env: ManagerBasedRLEnv,
+    minimum_height: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    sensor_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    # extract the used quantities (to enable type-hinting)
+    asset: RigidObject = env.scene[asset_cfg.name]
+    sensor: RayCaster = env.scene[sensor_cfg.name]
+    terrain_height = torch.amax(sensor.data.ray_hits_w[..., 2], dim=1)
+    relative_height = asset.data.root_pos_w[:, 2] - terrain_height
+    return relative_height < minimum_height
+
 def subterrain_out_of_bounds(
     env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), distance_buffer: float = 0.0
 ) -> torch.Tensor:
