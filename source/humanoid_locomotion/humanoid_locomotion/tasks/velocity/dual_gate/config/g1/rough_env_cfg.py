@@ -323,7 +323,7 @@ class RewardsCfg:
         func=mdp.joint_acc_l2,
         weight=-1.0e-6,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint"]),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint"])
         },
     )
     # shoulder_pitch_joint_acceleration_penalty = RewTerm(
@@ -358,7 +358,7 @@ class RewardsCfg:
         func=mdp.joint_deviation_l2,
         weight=-0.5,
         params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint"]),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint", ".*_wrist_.*_joint"]),
             "threshold": 0.25,
         },
     )
@@ -389,20 +389,20 @@ class RewardsCfg:
     # g1-29dof else joint
     wrist_joint_deviation_penalty = RewTerm(    # 6
         func=mdp.joint_deviation_l1,
-        weight=-1.0,
+        weight=-1.5,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_wrist_.*_joint"]),
         },
     )
-    # undesired_contacts = RewTerm(
-    #     func=mdp.undesired_contacts,
-    #     weight=-1.0,
-    #     params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=["(?!.*ankle.*).*"]), "threshold": 1.0}
-    # )
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-0.001,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=["(?!.*ankle.*).*"]), "threshold": 1.0}
+    )
     # joint_deviation_hip = RewTerm(
     #     func=mdp.joint_deviation_l1,
     #     weight=-0.1,
-    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
+    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint"])},
     # )
     # joint_deviation_arms = RewTerm(
     #     func=mdp.joint_deviation_l1,

@@ -31,7 +31,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         obs_normalization=True,
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="log"),
         cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16,48],
+            output_channels=[16,64],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -48,7 +48,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         activation="elu",
         obs_normalization=True,
         cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16, 48],
+            output_channels=[16, 64],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -73,6 +73,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
+        share_cnn_encoders=True
     )
 
 
