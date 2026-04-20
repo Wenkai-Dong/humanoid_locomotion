@@ -65,7 +65,7 @@ def ang_vel_cmd_levels(
 
 def attention_terrain_levels(
     env: ManagerBasedRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
-) -> torch.Tensor:
+) -> dict[str, torch.Tensor]:
     """Curriculum based on the distance the robot walked when commanded to move at a desired velocity.
 
     This term is used to increase the difficulty of the terrain when the robot walks far enough and decrease the
@@ -103,5 +103,10 @@ def attention_terrain_levels(
         cols = terrain.terrain_types[ids_to_reset]
         new_origins = terrain.terrain_origins[random_levels, cols]
         terrain.env_origins[ids_to_reset] = new_origins
-    # return the mean terrain level
-    return torch.mean(terrain.terrain_levels.float())
+    # return the mean terrain levels of sub-terrain
+    sub_terrains = list(terrain.cfg.terrain_generator.sub_terrains.keys())
+    levels = {}
+    for i in range(len(sub_terrains)):
+        levels[sub_terrains[i]] = torch.mean(terrain.terrain_levels[torch.where(terrain.terrain_types == i)[0]].float())
+    levels["all"] = torch.mean(terrain.terrain_levels.float())
+    return levels
