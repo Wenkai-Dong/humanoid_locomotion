@@ -12,7 +12,11 @@ from isaaclab_rl.rsl_rl import (
     RslRlSymmetryCfg,
     RslRlCNNModelCfg,
 )
-from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1
+from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.rl_cfg import (
+    RslRlCNNVelocityModelCfg,
+    RslRlPpoVelocityAlgorithmCfg,
+)
+from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1, g1_history
 
 
 @configclass
@@ -25,7 +29,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
-    actor = RslRlCNNModelCfg(
+    actor = RslRlCNNVelocityModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -43,7 +47,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
             flatten=True,
         )
     )
-    critic = RslRlCNNModelCfg(
+    critic = RslRlCNNVelocityModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -60,7 +64,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
             flatten=True,
         )
     )
-    algorithm = RslRlPpoAlgorithmCfg(
+    algorithm = RslRlPpoVelocityAlgorithmCfg(
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
@@ -73,7 +77,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
-        share_cnn_encoders=False
+        share_cnn_encoders=False,
     )
 
 
@@ -81,7 +85,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 class G1RoughPPORunnerCfgWithSymmetryCfg(G1RoughPPORunnerCfg):
     """Configuration for the PPO agent with symmetry augmentation."""
 
-    algorithm = RslRlPpoAlgorithmCfg(
+    algorithm = RslRlPpoVelocityAlgorithmCfg(
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
@@ -95,6 +99,7 @@ class G1RoughPPORunnerCfgWithSymmetryCfg(G1RoughPPORunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
         symmetry_cfg=RslRlSymmetryCfg(
-            use_data_augmentation=True, data_augmentation_func=g1.compute_symmetric_states
+            use_data_augmentation=True, data_augmentation_func=g1_history.compute_symmetric_states
         ),
+        share_cnn_encoders=False,
     )

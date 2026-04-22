@@ -95,7 +95,7 @@ class RobotSceneCfg(InteractiveSceneCfg):
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20)),
         ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[0.2, 0.4]),
-        debug_vis=True,
+        debug_vis=False,
         mesh_prim_paths=["/World/ground"],
         update_period=0.0,
         history_length=0,
@@ -192,6 +192,8 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         # observation terms (order preserved)
+        # The first term in the critic observation must be velocity. when calculates the MSE loss of velocity estimator,
+        # The PPO will use the true velocity obtained from the first term of the critic observation.
         base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, scale=0.2, noise=Unoise(n_min=-0.2, n_max=0.2))
         projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05))
@@ -354,7 +356,7 @@ class RewardsCfg:
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
         },
     )
-    joint_deviation_penalty = RewTerm(
+    joint_deviation_penalty_l2 = RewTerm(
         func=mdp.joint_deviation_l2,
         weight=-0.5,
         params={
@@ -399,18 +401,16 @@ class RewardsCfg:
         weight=-0.001,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=["(?!.*ankle.*).*"]), "threshold": 1.0}
     )
-    # joint_deviation_hip = RewTerm(
-    #     func=mdp.joint_deviation_l1,
-    #     weight=-0.1,
-    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint"])},
-    # )
-    # joint_deviation_arms = RewTerm(
-    #     func=mdp.joint_deviation_l1,
-    #     weight=-0.1,
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot",joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint", ".*_wrist_.*"])
-    #     },
-    # )
+    waist_yaw_joint_deviation_l1 = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.01,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint"])},
+    )
+    hip_yaw_joint_deviation_l1 = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint"])},
+    )
 
 
 @configclass
@@ -519,3 +519,9 @@ class G1RoughEnvCfg_EVAL(G1RoughEnvCfg):
         self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)
         # Recoder Settings
         self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})
+
+class G1VelocityRoughEnvCfg(G1RoughEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.observations.actor.history_length = 50
+        self.observations.actor.flatten_history_dim = False

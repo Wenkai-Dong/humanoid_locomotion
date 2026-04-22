@@ -67,3 +67,13 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
+gym.register(
+    id="DualGate-Velocity-Rough-G1-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1VelocityRoughEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "rsl_rl_with_symmetry_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
+    },
+)

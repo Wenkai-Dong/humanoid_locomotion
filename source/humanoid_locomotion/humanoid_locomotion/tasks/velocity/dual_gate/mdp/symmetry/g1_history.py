@@ -97,17 +97,17 @@ def _transform_actor_obs_left_right(obs: torch.Tensor) -> torch.Tensor:
     obs = obs.clone()
     device = obs.device
     # ang vel
-    obs[:, :3] = obs[:, :3] * torch.tensor([-1, 1, -1], device=device)
+    obs[..., :3] = obs[..., :3] * torch.tensor([-1, 1, -1], device=device)
     # projected gravity
-    obs[:, 3:6] = obs[:, 3:6] * torch.tensor([1, -1, 1], device=device)
+    obs[..., 3:6] = obs[..., 3:6] * torch.tensor([1, -1, 1], device=device)
     # velocity command
-    obs[:, 6:9] = obs[:, 6:9] * torch.tensor([1, -1, -1], device=device)
+    obs[..., 6:9] = obs[..., 6:9] * torch.tensor([1, -1, -1], device=device)
     # joint pos
-    obs[:, 9:38] = _switch_g1_joints_left_right(obs[:, 9:38])
+    obs[..., 9:38] = _switch_g1_joints_left_right(obs[..., 9:38])
     # joint vel
-    obs[:, 38:67] = _switch_g1_joints_left_right(obs[:, 38:67])
+    obs[..., 38:67] = _switch_g1_joints_left_right(obs[..., 38:67])
     # last actions
-    obs[:, 67:96] = _switch_g1_joints_left_right(obs[:, 67:96])
+    obs[..., 67:96] = _switch_g1_joints_left_right(obs[..., 67:96])
 
     return obs
 
