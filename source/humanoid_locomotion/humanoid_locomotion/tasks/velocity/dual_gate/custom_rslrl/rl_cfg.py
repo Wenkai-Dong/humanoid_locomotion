@@ -40,3 +40,16 @@ class RslRlPpoVelocityAlgorithmCfg(RslRlPpoAlgorithmCfg):
     """The name of the Velocity Estimator PPO algorithm. Defaults to 'VelocityEstimatorPPOAlgorithm'"""
 
 
+#########################
+# Runner configurations #
+#########################
+
+
+@configclass
+class RslRlOnPolicyRunnerCfgNew(RslRlOnPolicyRunnerCfg):
+    """Configuration of the runner for on-policy algorithms."""
+
+    class_name: str = "OnPolicyRunner"
+    """The runner class name. Defaults to OnPolicyRunner."""
+
+    torch_compile_mode : Literal["default", "max-autotune-no-cudagraphs"] | None = None

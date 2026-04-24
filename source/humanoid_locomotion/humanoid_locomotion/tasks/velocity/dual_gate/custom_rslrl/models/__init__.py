@@ -6,7 +6,9 @@
 """Neural models for the learning algorithm."""
 
 from .cnn_velocity_model import CNNVelocityModel
+from .mha_model import MHAModel
 
 __all__ = [
     "CNNVelocityModel",
+    "MHAModel",
 ]

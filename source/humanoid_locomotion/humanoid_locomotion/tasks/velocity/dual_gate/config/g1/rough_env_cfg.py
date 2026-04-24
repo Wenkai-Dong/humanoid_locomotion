@@ -389,7 +389,7 @@ class RewardsCfg:
         },
     )
     # g1-29dof else joint
-    wrist_joint_deviation_penalty = RewTerm(    # 6
+    wrist_joint_deviation_penalty_l1 = RewTerm(    # 6
         func=mdp.joint_deviation_l1,
         weight=-1.5,
         params={
@@ -403,7 +403,7 @@ class RewardsCfg:
     )
     waist_yaw_joint_deviation_l1 = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.01,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint"])},
     )
     hip_yaw_joint_deviation_l1 = RewTerm(
@@ -525,3 +525,27 @@ class G1VelocityRoughEnvCfg(G1RoughEnvCfg):
         super().__post_init__()
         self.observations.actor.history_length = 50
         self.observations.actor.flatten_history_dim = False
+
+class G1VelocityRoughEnvCfg_PLAY(G1VelocityRoughEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.episode_length_s = 40.0
+        self.scene.num_envs = 64
+        self.scene.terrain.max_init_terrain_level = None
+
+class G1VelocityRoughEnvCfg_EVAL(G1VelocityRoughEnvCfg):
+    def __post_init__(self):
+
+        super().__post_init__()
+        # Scene settings
+        self.scene.terrain.max_init_terrain_level = None
+        # Basic settings
+        self.commands.base_velocity.resampling_time_range = (30, 30)
+        self.commands.base_velocity.rel_standing_envs = 0.0
+        self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
+        self.commands.base_velocity.ranges.lin_vel_x = (0, 0)
+        self.commands.base_velocity.ranges.heading = (0, 0)
+        # MDP settings
+        self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)
+        # Recoder Settings
+        self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})

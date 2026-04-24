@@ -10,7 +10,7 @@ from random import randint
 import scipy.interpolate as interpolate
 
 if TYPE_CHECKING:
-    from . import ame_1_terrains_cfg
+    from . import hf_terrains_cfg
 
 
 def mesh_concentric_beams_terrain(
