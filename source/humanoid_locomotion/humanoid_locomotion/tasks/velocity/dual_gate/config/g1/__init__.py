@@ -104,6 +104,15 @@ gym.register(
     },
 )
 gym.register(
+    id="DualGate-Asymmetric-G1-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+    },
+)
+gym.register(
     id="DualGate-MHA-G1-Play-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,

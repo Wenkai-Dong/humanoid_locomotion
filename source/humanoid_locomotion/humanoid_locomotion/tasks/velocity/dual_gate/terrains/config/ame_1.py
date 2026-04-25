@@ -17,12 +17,12 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
     size=(10.0, 10.0),
     border_width=10,
-    num_rows=1,
+    num_rows=10,
     num_cols=12,
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=0.75,
-    difficulty_range=(1.0, 1.0),
+    difficulty_range=(0.0, 1.0),
     use_cache=False,
     sub_terrains={
         "Rough": HfRandomUniformDifficultyTerrainCfg(
