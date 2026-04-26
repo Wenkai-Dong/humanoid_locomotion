@@ -7,7 +7,7 @@ from isaaclab.utils import configclass
 
 from .rough_env_cfg import G1VelocityRoughEnvCfg
 from humanoid_locomotion.tasks.velocity.dual_gate import mdp
-from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config import ROUGH_TERRAINS_CFG
+from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config import ATTENTION_TERRAINS_CFG
 
 @configclass
 class G1AttentionEnvCfg(G1VelocityRoughEnvCfg):
@@ -16,7 +16,7 @@ class G1AttentionEnvCfg(G1VelocityRoughEnvCfg):
         super().__post_init__()
 
         # change terrain to attention
-        self.scene.terrain.terrain_generator = ROUGH_TERRAINS_CFG
+        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFG
 
 
 @configclass

@@ -13,7 +13,7 @@ from isaaclab.terrains.terrain_generator_cfg import TerrainGeneratorCfg
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains import hf_terrains
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.hf_terrains_cfg import *
 
-ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
+ATTENTION_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
     size=(10.0, 10.0),
     border_width=10,
@@ -46,7 +46,7 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
         ),
         "Gaps": terrain_gen.MeshGapTerrainCfg(
             proportion=0.1,
-            gap_width_range=(0.11,0.8),
+            gap_width_range=(0.05,0.6),
             platform_width=2.0,
         ),
         "GridStones": terrain_gen.HfSteppingStonesTerrainCfg(
@@ -59,31 +59,31 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             border_width=1.0
         ),
         "Pallets": HfConcentricGapTerrainCfg(
-            proportion=0.1,
-            gap_width_range=(0.1, 0.5),
+            proportion=0.2,
+            gap_width_range=(0.09, 0.5),
             platform_width=2.0,
             border_width=0.25,
             gap_depth=-10.0,
             ground_width_range=(0.31, 0.5),
-            ground_height_max=0.025
+            ground_height_max=0.03
         ),
         "Pits": terrain_gen.MeshPitTerrainCfg(
             proportion=0.1,
-            pit_depth_range=(0.1,0.45),
+            pit_depth_range=(0.05,0.45),
             double_pit=True,
             platform_width=2.,
         ),
         "PitsInverted": terrain_gen.MeshBoxTerrainCfg(
             proportion=0.1,
-            box_height_range=(0.1,0.6),
+            box_height_range=(0.05,0.6),
             double_box=True,
             platform_width=2.,
         ),
         "Beams": terrain_gen.MeshStarTerrainCfg(
-            proportion=0.2,
+            proportion=0.1,
             num_bars=4,
             bar_width_range=(0.1,1.),
-            bar_height_range=(5.,5.),
+            bar_height_range=(5.0,5.0),
             platform_width=2.,
         ),
         "boxes": terrain_gen.MeshRandomGridTerrainCfg(

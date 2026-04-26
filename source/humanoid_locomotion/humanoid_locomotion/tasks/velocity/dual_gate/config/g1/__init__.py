@@ -77,57 +77,44 @@ gym.register(
     },
 )
 gym.register(
-    id="DualGate-Rough-G1-Play-v0",
+    id="DualGate-Velocity-Rough-G1-Play-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1RoughEnvCfg_PLAY",
+        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1VelocityRoughEnvCfg_PLAY",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
     },
 )
 gym.register(
-    id="DualGate-Rough-G1-Eval-v0",
+    id="DualGate-Velocity-Rough-G1-Eval-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1RoughEnvCfg_EVAL",
+        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:G1VelocityRoughEnvCfg_EVAL",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
     },
 )
 gym.register(
-    id="DualGate-MHA-G1-v0",
+    id="DualGate-Attention-G1-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "latent_rsl_rl_cfg_entry_point": f"{agents.__name__}.latent_asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
-    id="DualGate-Asymmetric-G1-v0",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-    },
-)
-gym.register(
-    id="DualGate-Gated-G1-v0",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-    },
-)
-gym.register(
-    id="DualGate-MHA-G1-Play-v0",
+    id="DualGate-Attention-G1-Play-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg_PLAY",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
@@ -136,6 +123,8 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfg_EVAL",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
