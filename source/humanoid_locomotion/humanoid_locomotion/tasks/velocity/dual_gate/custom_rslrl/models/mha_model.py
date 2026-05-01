@@ -9,7 +9,6 @@ from __future__ import annotations
 import copy
 import torch
 import torch.nn as nn
-from sympy.physics.units import velocity
 from tensordict import TensorDict
 from typing import Any
 
@@ -141,21 +140,28 @@ class MHAModel(MLPModel):
             self.velocity_estimator = MLP(128, 3, (64, 32), activation)
             # Initialize the weights of the MLP
             self.velocity_estimator.init_weights(
-                [2 ** 0.5, None, 2 ** 0.5, None, 0.01]
+                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
             )
             self.velocity = None
 
         if obs_set == "actor":
-            self.linear = nn.Sequential(
-                MLP(obs_dim_1d+3, 64, (128,), activation),
-                nn.ELU(),
-            )
+            self.linear = nn.Linear(obs_dim_1d + 3, 64)
         else:
-            self.linear = nn.Sequential(
-                MLP(obs_dim_1d, 64, (128,), activation),
-                nn.ELU(),
-            )
-        self.linear_norm = nn.LayerNorm(64)
+            self.linear = nn.Linear(obs_dim_1d, 64)
+        nn.init.orthogonal_(self.linear.weight, gain=1.0)
+        nn.init.zeros_(self.linear.bias)
+
+        self.position = nn.Sequential(
+            nn.Linear(3, 32),
+            nn.LayerNorm(32),
+            nn.ELU(),
+            nn.Linear(32, 16),
+        )
+        nn.init.orthogonal_(self.position[0].weight, gain=1.0)
+        nn.init.orthogonal_(self.position[3].weight, gain=2 ** 0.5)
+        nn.init.zeros_(self.position[0].bias)
+        nn.init.zeros_(self.position[3].bias)
+
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
         self.mha = nn.MultiheadAttention(embed_dim=64, num_heads=16, batch_first=True)
@@ -177,13 +183,19 @@ class MHAModel(MLPModel):
         if self.obs_groups[0] == "actor":
             velocity = self.get_velocity(obs).detach()
             latent_1d = torch.cat((velocity, latent_1d), dim=-1)
-        latent_1d_linear = self.linear(latent_1d)
+        latent_1d_encoder = self.linear(latent_1d).unsqueeze(1) # (N, 1, 64)
         # Process 2D observation groups with CNNs
-        latent_cnn = torch.cat([self.cnns[obs_group](obs[obs_group][:,2:3,...]) for obs_group in self.obs_groups_2d], dim=-1)
-        latent_cnn = torch.cat([latent_cnn, obs["actor_map"]], dim=1).flatten(2).permute(0,2,1).contiguous()
-        latent_mha, _ = self.mha(self.q_norm(latent_1d_linear).unsqueeze(1), self.k_norm(latent_cnn), latent_cnn, need_weights=False)
+        latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:, 2:3, ...]) for obs_group in self.obs_groups_2d]
+        latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 48, 13, 18)
+        latent_cnn = latent_cnn.flatten(2).permute(0, 2, 1) # (N, 234, 48)
+        latent_position = self.position(obs["actor_map"].flatten(2).permute(0, 2, 1))   # (N, 234, 16)
+        latent_mapping = torch.cat([latent_cnn, latent_position], dim=-1)   # (N, 234, 64)
+        query = self.q_norm(latent_1d_encoder)
+        key = self.k_norm(latent_mapping)
+        latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 1, 64)
+        latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 64)
         # Concatenate 1D and CNN latents
-        return torch.cat([self.linear_norm(latent_1d_linear), self.o_norm(latent_mha).flatten(1)], dim=-1)
+        return torch.cat([latent_1d, latent_mha], dim=-1)   # (N, 128)
 
     def get_velocity(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -236,7 +248,10 @@ class MHAModel(MLPModel):
 
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
-        return 64 + 64
+        if self.obs_groups[0] == "actor":
+            return self.obs_dim + 64 + 3
+        else:
+            return self.obs_dim + 64
 
 
 class _TorchCNNModel(nn.Module):
