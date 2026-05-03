@@ -46,7 +46,7 @@ ATTENTION_TERRAINS_CFG = TerrainGeneratorCfg(
         ),
         "Gaps": terrain_gen.MeshGapTerrainCfg(
             proportion=0.1,
-            gap_width_range=(0.05,0.6),
+            gap_width_range=(0.01,0.6),
             platform_width=2.0,
         ),
         "GridStones": terrain_gen.HfSteppingStonesTerrainCfg(

@@ -31,6 +31,7 @@ def root_height_below_minimum_terrain(
     asset: RigidObject = env.scene[asset_cfg.name]
     sensor: RayCaster = env.scene[sensor_cfg.name]
     terrain_height = torch.amax(sensor.data.ray_hits_w[..., 2], dim=1)
+    terrain_height = torch.nan_to_num(terrain_height, nan=-1e6, posinf=-1e6, neginf=-1e6)
     relative_height = asset.data.root_pos_w[:, 2] - terrain_height
     return relative_height < minimum_height
 

@@ -37,6 +37,7 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
         self.episode_length_s = 40.0
         # make a smaller scene for play
         self.scene.num_envs = 64
+        self.scene.terrain.max_init_terrain_level = None
 
 
 @configclass

@@ -214,6 +214,8 @@ class PPOVelocity:
         mean_symmetry_loss = 0 if self.symmetry.use_mirror_loss else None
         # Velocity loss
         mean_velocity_loss = 0
+        # Explained Variance
+        mean_explained_variance = 0
 
         # Get mini-batch generator
         if self.actor.is_recurrent or self.critic.is_recurrent:
@@ -343,6 +345,10 @@ class PPOVelocity:
             # Velocity loss
             if velocity_loss is not None:
                 mean_velocity_loss += velocity_loss.item()
+            # Explained Variance
+            with torch.inference_mode():
+                explained_variance = 1 - torch.var(batch.returns - values) / (torch.var(batch.returns) + 1e-8)
+            mean_explained_variance += explained_variance.item()
 
         # Divide the losses by the number of updates
         num_updates = self.num_learning_epochs * self.num_mini_batches
@@ -353,8 +359,8 @@ class PPOVelocity:
             mean_rnd_loss /= num_updates
         if mean_symmetry_loss is not None:
             mean_symmetry_loss /= num_updates
-        if mean_velocity_loss is not None:
-            mean_velocity_loss /= num_updates
+        mean_velocity_loss /= num_updates
+        mean_explained_variance /= num_updates
 
         # Construct the loss dictionary
         loss_dict = {
@@ -367,6 +373,7 @@ class PPOVelocity:
         if self.symmetry.use_mirror_loss:
             loss_dict["symmetry"] = mean_symmetry_loss
         loss_dict["velocity"] = mean_velocity_loss
+        loss_dict["explained_variance"] = mean_explained_variance
 
         # Clear the storage
         self.storage.clear()

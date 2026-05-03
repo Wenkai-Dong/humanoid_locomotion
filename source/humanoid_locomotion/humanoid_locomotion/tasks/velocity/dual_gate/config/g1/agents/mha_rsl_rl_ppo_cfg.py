@@ -24,12 +24,14 @@ from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1, g1_his
 class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
     num_steps_per_env = 24
     max_iterations = 30000
-    save_interval = 50
-    experiment_name = "dualgate_mha_g1_v0"
+    save_interval = 200
+    experiment_name = "Attention-G1/mha"
     obs_groups = {
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
+    wandb_project = "velocity"
+    logger = "wandb"
     torch_compile_mode = None   # "default", "max-autotune-no-cudagraphs"
     actor = RslRlCNNVelocityModelCfg(
         class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.mha_model:MHAModel",
