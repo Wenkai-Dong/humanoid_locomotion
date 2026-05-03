@@ -173,7 +173,7 @@ class MHAModel(MLPModel):
         """Build the model latent by combining normalized 1D and CNN-encoded 2D observation groups."""
         # get history observation
         if obs["actor"].dim() == 3:
-            obs_current = obs.clone()
+            obs_current = obs.copy()
             obs_current["actor"] = obs_current["actor"][:, -1]
         else:
             obs_current = obs
