@@ -25,12 +25,14 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
     num_steps_per_env = 24
     max_iterations = 30000
     save_interval = 50
-    experiment_name = "dualgate_rough_g1_v0"
+    experiment_name = "Attention-G1/cnn"
     obs_groups = {
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
-    torch_compile_mode = None
+    wandb_project = "velocity"
+    logger = "wandb"
+    torch_compile_mode = "default"   # "default", "max-autotune-no-cudagraphs"
     actor = RslRlCNNVelocityModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
