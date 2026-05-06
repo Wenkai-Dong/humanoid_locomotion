@@ -40,7 +40,7 @@ class RobotSceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground",
         terrain_type="generator",
         terrain_generator=ROUGH_TERRAINS_CFG,
-        max_init_terrain_level=0,
+        max_init_terrain_level=None,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -488,8 +488,8 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.episode_length_s = 40.0
-        self.scene.num_envs = 64
-        self.scene.terrain.max_init_terrain_level = None
+        self.scene.num_envs = 32
+        self.scene.terrain.max_init_terrain_level = 9
 
 
 @configclass
@@ -531,8 +531,8 @@ class G1VelocityRoughEnvCfg_PLAY(G1VelocityRoughEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.episode_length_s = 40.0
-        self.scene.num_envs = 64
-        self.scene.terrain.max_init_terrain_level = None
+        self.scene.num_envs = 32
+        self.scene.terrain.max_init_terrain_level = 9
 
 class G1VelocityRoughEnvCfg_EVAL(G1VelocityRoughEnvCfg):
     def __post_init__(self):

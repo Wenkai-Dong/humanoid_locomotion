@@ -32,7 +32,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
     }
     wandb_project = "velocity"
     logger = "wandb"
-    torch_compile_mode = "default"   # "default", "max-autotune-no-cudagraphs"
+    torch_compile_mode = None   # "default", "max-autotune-no-cudagraphs"
     actor = RslRlCNNVelocityModelCfg(
         hidden_dims=[512, 256, 128],
         activation="elu",
