@@ -514,7 +514,7 @@ class G1RoughEnvCfg_EVAL(G1RoughEnvCfg):
         self.commands.base_velocity.resampling_time_range = (30, 30)
         self.commands.base_velocity.rel_standing_envs = 0.0
         self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_x = (0, 0)
+        self.commands.base_velocity.ranges.lin_vel_y = (0, 0)
         self.commands.base_velocity.ranges.heading = (0, 0)
         # MDP settings
         self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)
@@ -544,7 +544,7 @@ class G1VelocityRoughEnvCfg_EVAL(G1VelocityRoughEnvCfg):
         self.commands.base_velocity.resampling_time_range = (30, 30)
         self.commands.base_velocity.rel_standing_envs = 0.0
         self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_x = (0, 0)
+        self.commands.base_velocity.ranges.lin_vel_y = (0, 0)
         self.commands.base_velocity.ranges.heading = (0, 0)
         # MDP settings
         self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)

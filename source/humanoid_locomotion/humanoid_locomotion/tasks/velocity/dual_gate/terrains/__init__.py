@@ -20,3 +20,4 @@ There are two main components in this package:
 
 """
 from .height_field import *  # noqa: F401, F403
+from .trimesh import *

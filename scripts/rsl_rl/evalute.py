@@ -101,7 +101,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     """Play with RSL-RL agent."""
     # grab task name for checkpoint path
     task_name = args_cli.task.split(":")[-1]
-    train_task_name = task_name.replace("-Play", "")
+    train_task_name = task_name.replace("-Eval", "")
 
     # override configurations with non-hydra CLI arguments
     agent_cfg: RslRlBaseRunnerCfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
@@ -136,10 +136,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if args_cli.velocity:
         env_cfg.commands.base_velocity.ranges.lin_vel_x = (float(args_cli.velocity), float(args_cli.velocity))
 
-    vel_x = env_cfg.commands.base_velocity.ranges.lin_vel_x[0]
-    env_cfg.recorders.dataset_export_dir_path = os.path.join(log_dir, "dataset")
+    lin_vel_x = env_cfg.commands.base_velocity.ranges.lin_vel_x[0]
     base_filename = os.path.splitext(os.path.basename(resume_path))[0]
-    env_cfg.recorders.dataset_filename = base_filename + f"_{vel_x}"
+    env_cfg.recorders.dataset_export_dir_path = os.path.join(log_dir, base_filename)
+    env_cfg.recorders.dataset_filename = "lin_vel_x" + f"_{lin_vel_x}"
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)

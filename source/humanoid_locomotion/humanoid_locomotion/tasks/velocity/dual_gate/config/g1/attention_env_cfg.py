@@ -4,11 +4,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from isaaclab.utils import configclass
+import math
+from isaaclab.managers import TerminationTermCfg as DoneTerm
 
 from .rough_env_cfg import G1VelocityRoughEnvCfg
 from humanoid_locomotion.tasks.velocity.dual_gate import mdp
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention import ATTENTION_TERRAINS_CFG
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention_v1 import ATTENTION_TERRAINS_CFGv1
+from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention_v2 import ATTENTION_TERRAINS_CFGv2
 
 @configclass
 class G1AttentionEnvCfg(G1VelocityRoughEnvCfg):
@@ -46,11 +49,13 @@ class G1AttentionEnvCfg_EVAL(G1AttentionEnvCfg):
         # post init of parent
         super().__post_init__()
 
+        self.scene.terrain.terrain_generator.num_rows = 1
+        self.scene.terrain.terrain_generator.difficulty_range = (0.9, 1.0)
         # Basic settings
         self.commands.base_velocity.resampling_time_range = (30, 30)
         self.commands.base_velocity.rel_standing_envs = 0.0
         self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_x = (0, 0)
+        self.commands.base_velocity.ranges.lin_vel_y = (0, 0)
         self.commands.base_velocity.ranges.heading = (0, 0)
         # MDP settings
         self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)
@@ -65,7 +70,7 @@ class G1AttentionEnvCfgv1(G1VelocityRoughEnvCfg):
         super().__post_init__()
 
         # change terrain to attention
-        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv1
+        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv2
 
 @configclass
 class G1AttentionEnvCfgv1_PLAY(G1AttentionEnvCfgv1):
@@ -87,13 +92,24 @@ class G1AttentionEnvCfgv1_EVAL(G1AttentionEnvCfgv1):
         # post init of parent
         super().__post_init__()
 
+        self.scene.terrain.terrain_generator.num_rows = 1
+        self.scene.terrain.terrain_generator.difficulty_range = (0.9, 1.0)
         # Basic settings
         self.commands.base_velocity.resampling_time_range = (30, 30)
         self.commands.base_velocity.rel_standing_envs = 0.0
         self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_x = (0, 0)
+        self.commands.base_velocity.ranges.lin_vel_y = (0, 0)
         self.commands.base_velocity.ranges.heading = (0, 0)
         # MDP settings
         self.events.reset_base.params["pose_range"]["yaw"] = (-math.pi/4, math.pi/4)
         # Recoder Settings
         self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})
+
+@configclass
+class G1AttentionEnvCfgv2(G1VelocityRoughEnvCfg):
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        # change terrain to attention
+        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv2
