@@ -36,8 +36,8 @@ class MeshPalletsTerrainCfg(SubTerrainBaseCfg):
     holes_depth: float = -10.0
     """The depth of the holes (negative obstacles). Defaults to -10.0."""
 
-    platform_width: float = 1.0
-    """The width of the square platform at the center of the terrain. Defaults to 1.0."""
+    platform_width: tuple[float, float] | float = 2.0
+    """The width of the square platform at the center of the terrain. Defaults to 2.0."""
 
     border_width: float = 1.0
     """The width of the border around the terrain. Defaults to 1.0."""
@@ -61,11 +61,37 @@ class MeshSteppingStonesTerrainCfg(SubTerrainBaseCfg):
     holes_depth: float = -10.0
     """The depth of the holes (negative obstacles). Defaults to -10.0."""
 
-    platform_width: float = 1.0
-    """The width of the square platform at the center of the terrain. Defaults to 1.0."""
+    platform_width: tuple[float, float] | float = 2.0
+    """The width of the square platform at the center of the terrain. Defaults to 2.0."""
 
     border_width: float = 1.0
     """The width of the border around the terrain. Defaults to 1.0."""
 
     max_yx_angle: tuple[float, float] | bool = False
     """Whether to use Euler angles for rotation. Defaults to False."""
+
+
+@configclass
+class MeshPalletsNarrowTerrainCfg(SubTerrainBaseCfg):
+    """Configuration for a terrain with a star pattern."""
+
+    function = mesh_terrains.pallets_narrow_terrain
+
+    num_bars: int = MISSING
+    """The number of bars per-side the star. Must be greater than 2."""
+
+    bar_width_range: tuple[float, float] = MISSING
+    """The minimum and maximum width of the bars in the star (in m)."""
+
+    platform_width: tuple[float, float] | float = 1.0
+    """The width of the cylindrical platform at the center of the terrain. Defaults to 1.0."""
+
+    stone_length_range: tuple[float, float] = MISSING
+    """The minimum and maximum width of the stones (in m)."""
+
+    stone_distance_range: tuple[float, float] = MISSING
+    """The minimum and maximum distance between stones (in m)."""
+
+    stone_height_range: tuple[float, float] = MISSING
+    """The minimum and maximum distance between stones (in m)."""
+

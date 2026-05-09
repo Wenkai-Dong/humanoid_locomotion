@@ -30,6 +30,10 @@ def pallets_terrain(
         cfg.pallet_distance_range[1] - cfg.pallet_distance_range[0]
     )
     pallet_height = cfg.pallet_height[0] + difficulty * (cfg.pallet_height[1] - cfg.pallet_height[0])
+    if isinstance(cfg.platform_width, tuple):
+        platform_width = cfg.platform_width[0] + difficulty * (cfg.platform_width[1] - cfg.platform_width[0])
+    else:
+        platform_width = cfg.platform_width
 
     # initialize list of meshes
     meshes_list = list()
@@ -47,7 +51,7 @@ def pallets_terrain(
     inner_size[0] -=2 * (pallet_distance + pallet_width)
     inner_size[1] -=2 * (pallet_distance + pallet_width)
     # Generate the pallets
-    while outer_size[0] > cfg.platform_width and outer_size[1] > cfg.platform_width:
+    while outer_size[0] > platform_width and outer_size[1] > platform_width:
         pallet_center[2] = -terrain_height / 2 + np.random.uniform(-pallet_height, pallet_height)
         meshes_list += make_border(outer_size, inner_size, terrain_height, pallet_center)
         outer_size[0] -= 2 * (pallet_distance + pallet_width)
@@ -56,7 +60,7 @@ def pallets_terrain(
         inner_size[1] -= 2 * (pallet_distance + pallet_width)
 
     # Generate the inner box
-    box_dim = (cfg.platform_width, cfg.platform_width, terrain_height)
+    box_dim = (platform_width, platform_width, terrain_height)
     box = trimesh.creation.box(box_dim, trimesh.transformations.translation_matrix(terrain_center))
     meshes_list.append(box)
 
@@ -77,6 +81,10 @@ def stepping_stones_height_terrain(
     stone_height_max = cfg.stone_height_max[0] + difficulty * (cfg.stone_height_max[1] - cfg.stone_height_max[0])
     if cfg.max_yx_angle:
         max_yx_angle = cfg.max_yx_angle[0] + difficulty * (cfg.max_yx_angle[1] - cfg.max_yx_angle[0])
+    if isinstance(cfg.platform_width, tuple):
+        platform_width = cfg.platform_width[0] + difficulty * (cfg.platform_width[1] - cfg.platform_width[0])
+    else:
+        platform_width = cfg.platform_width
 
     # initialize list of meshes
     meshes_list = list()
@@ -112,8 +120,8 @@ def stepping_stones_height_terrain(
             length = stop_x - start_x
             width = stop_y - start_y
             height = ob_height
-            if not (stop_x < 0.5 * (cfg.size[0] - cfg.platform_width) or start_x > 0.5 * (cfg.size[0] + cfg.platform_width)
-            or stop_y < 0.5 * (cfg.size[1] - cfg.platform_width) or start_y > 0.5 * (cfg.size[1] + cfg.platform_width)):
+            if not (stop_x < 0.5 * (cfg.size[0] - platform_width) or start_x > 0.5 * (cfg.size[0] + platform_width)
+            or stop_y < 0.5 * (cfg.size[1] - platform_width) or start_y > 0.5 * (cfg.size[1] + platform_width)):
                 center = ((stop_x + start_x) / 2, (stop_y + start_y) / 2, -ob_height / 2)
             else:
                 center = ((stop_x + start_x) / 2, (stop_y + start_y) / 2,
@@ -131,7 +139,7 @@ def stepping_stones_height_terrain(
         # update y-position
         start_y += stone_width + stone_distance
     # add the platform in the center
-    box_dim = (cfg.platform_width, cfg.platform_width, ob_height)
+    box_dim = (platform_width, platform_width, ob_height)
     box = trimesh.creation.box(box_dim, trimesh.transformations.translation_matrix(terrain_center))
     meshes_list.append(box)
 
@@ -139,3 +147,88 @@ def stepping_stones_height_terrain(
     origin = np.array([terrain_center[0], terrain_center[1], 0.0])
 
     return meshes_list, origin
+
+
+def pallets_narrow_terrain(
+    difficulty: float, cfg: mesh_terrains_cfg.MeshStarGapTerrainCfg
+) -> tuple[list[trimesh.Trimesh], np.ndarray]:
+    # check the number of bars
+    if cfg.num_bars < 2:
+        raise ValueError(f"The number of bars in the star must be greater than 2. Received: {cfg.num_bars}")
+
+    # resolve the terrain configuration
+    bar_width = cfg.bar_width_range[1] - difficulty * (cfg.bar_width_range[1] - cfg.bar_width_range[0])
+    stone_length = cfg.stone_length_range[1] - difficulty * (cfg.stone_length_range[1] - cfg.stone_length_range[0])
+    stone_distance = cfg.stone_distance_range[0] + difficulty * (cfg.stone_distance_range[1] - cfg.stone_distance_range[0])
+    stone_height_max = cfg.stone_height_range[0] + difficulty * (cfg.stone_height_range[1] - cfg.stone_height_range[0])
+    if isinstance(cfg.platform_width, tuple):
+        platform_width = cfg.platform_width[0] + difficulty * (cfg.platform_width[1] - cfg.platform_width[0])
+    else:
+        platform_width = cfg.platform_width
+
+    # initialize list of meshes
+    meshes_list = list()
+    # constants for terrain generation
+    ob_height = 1.0
+    # Generate a platform in the middle
+    platform_center = (0.5 * cfg.size[0], 0.5 * cfg.size[1], -ob_height / 2)
+    platform_transform = trimesh.transformations.translation_matrix(platform_center)
+    platform = trimesh.creation.cylinder(
+        platform_width * 0.5, ob_height, sections=2 * cfg.num_bars, transform=platform_transform
+    )
+    meshes_list.append(platform)
+    # Generate bars to connect the platform to the terrain
+    transform = np.eye(4)
+    transform[:3, -1] = np.asarray(platform_center)
+    yaw = 0.0
+    for _ in range(cfg.num_bars):
+        # compute the length of the bar based on the yaw
+        # length changes since the bar is connected to a square border
+        bar_length = cfg.size[0]
+        if yaw < 0.25 * np.pi:
+            bar_length /= np.math.cos(yaw)
+        elif yaw < 0.75 * np.pi:
+            bar_length /= np.math.sin(yaw)
+        else:
+            bar_length /= np.math.cos(np.pi - yaw)
+        # compute the transform of the bar
+        transform[0:3, 0:3] = tf.Rotation.from_euler("z", yaw).as_matrix()
+        # add the bar to the mesh
+        dim = [stone_length, bar_width, ob_height]
+        transform[:3, -1] = np.asarray(platform_center)
+        start = 0.5 * platform_width  + stone_distance
+        while start <= 0.5 * (bar_length - bar_width):
+            stone_center = start + 0.5 * stone_length
+            transform[0, -1] = platform_center[0] - stone_center * np.math.cos(yaw)
+            transform[1, -1] = platform_center[1] - stone_center * np.math.sin(yaw)
+            if (start + stone_length) > 0.5 * (bar_length - bar_width):
+                transform[2, -1] = platform_center[2]
+            else:
+                transform[2, -1] = platform_center[2] + np.random.uniform(-stone_height_max, stone_height_max)
+            bar = trimesh.creation.box(dim, transform)
+            meshes_list.append(bar)
+            start += stone_length + stone_distance
+        transform[:3, -1] = np.asarray(platform_center)
+        start = 0.5 * platform_width  + stone_distance
+        while start <= 0.5 * (bar_length - bar_width):
+            stone_center = start + 0.5 * stone_length
+            transform[0, -1] = platform_center[0] + stone_center * np.math.cos(yaw)
+            transform[1, -1] = platform_center[1] + stone_center * np.math.sin(yaw)
+            if (start + stone_length) > 0.5 * (bar_length - bar_width):
+                transform[2, -1] = platform_center[2]
+            else:
+                transform[2, -1] = platform_center[2] + np.random.uniform(-stone_height_max, stone_height_max)
+            bar = trimesh.creation.box(dim, transform)
+            meshes_list.append(bar)
+            start += stone_length + stone_distance
+        transform[:3, -1] = np.asarray(platform_center)
+        # increment the yaw
+        yaw += np.pi / cfg.num_bars
+    # Generate the exterior border
+    inner_size = (cfg.size[0] - 2 * bar_width, cfg.size[1] - 2 * bar_width)
+    meshes_list += make_border(cfg.size, inner_size, ob_height, platform_center)
+    # specify the origin of the terrain
+    origin = np.asarray([0.5 * cfg.size[0], 0.5 * cfg.size[1], 0.0])
+
+    return meshes_list, origin
+

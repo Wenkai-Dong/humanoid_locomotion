@@ -12,6 +12,7 @@ from humanoid_locomotion.tasks.velocity.dual_gate import mdp
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention import ATTENTION_TERRAINS_CFG
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention_v1 import ATTENTION_TERRAINS_CFGv1
 from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention_v2 import ATTENTION_TERRAINS_CFGv2
+from humanoid_locomotion.tasks.velocity.dual_gate.terrains.config.attention_v3 import ATTENTION_TERRAINS_CFGv3
 
 @configclass
 class G1AttentionEnvCfg(G1VelocityRoughEnvCfg):
@@ -70,7 +71,7 @@ class G1AttentionEnvCfgv1(G1VelocityRoughEnvCfg):
         super().__post_init__()
 
         # change terrain to attention
-        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv2
+        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv1
 
 @configclass
 class G1AttentionEnvCfgv1_PLAY(G1AttentionEnvCfgv1):
@@ -113,3 +114,12 @@ class G1AttentionEnvCfgv2(G1VelocityRoughEnvCfg):
 
         # change terrain to attention
         self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv2
+
+@configclass
+class G1AttentionEnvCfgv3(G1VelocityRoughEnvCfg):
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        # change terrain to attention
+        self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv3
