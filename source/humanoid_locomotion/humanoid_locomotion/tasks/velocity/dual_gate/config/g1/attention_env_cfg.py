@@ -123,3 +123,5 @@ class G1AttentionEnvCfgv3(G1VelocityRoughEnvCfg):
 
         # change terrain to attention
         self.scene.terrain.terrain_generator = ATTENTION_TERRAINS_CFGv3
+        self.rewards.standing_joint_velocity_penalty.weight = -0.02
+        self.rewards.standing_joint_velocity_penalty.params["threshold"] = 0.01
