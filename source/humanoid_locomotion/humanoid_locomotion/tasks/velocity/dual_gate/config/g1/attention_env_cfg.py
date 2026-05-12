@@ -158,6 +158,6 @@ class G1AttentionEnvCfgv3_EVAL(G1AttentionEnvCfgv3):
         # MDP settings
         self.events.reset_base.params["pose_range"]["x"] = (-0.0, 0.0)
         self.events.reset_base.params["pose_range"]["y"] = (-0.0, 0.0)
-        # self.events.reset_base.params["pose_range"]["yaw"] = (-0.0, 0.0)
+        self.events.reset_base.params["pose_range"]["yaw"] = (-0.0, 0.0)
         # Recoder Settings
         self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})
