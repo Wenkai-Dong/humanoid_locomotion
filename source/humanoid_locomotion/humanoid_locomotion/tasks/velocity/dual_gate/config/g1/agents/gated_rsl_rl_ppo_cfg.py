@@ -30,6 +30,8 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
+    wandb_project = "velocity"
+    logger = "wandb"
     torch_compile_mode = None   # "default", "max-autotune-no-cudagraphs"
     actor = RslRlCNNVelocityModelCfg(
         class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model:GatedMHAModel",
