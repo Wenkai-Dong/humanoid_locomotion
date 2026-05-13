@@ -192,9 +192,7 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfgv3",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "latent_rsl_rl_cfg_entry_point": f"{agents.__name__}.latent_asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
@@ -205,9 +203,7 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfgv3_PLAY",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "latent_rsl_rl_cfg_entry_point": f"{agents.__name__}.latent_asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
@@ -218,8 +214,6 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.attention_env_cfg:G1AttentionEnvCfgv3_EVAL",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "asymmetric_rsl_rl_cfg_entry_point": f"{agents.__name__}.asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
-        "latent_rsl_rl_cfg_entry_point": f"{agents.__name__}.latent_asymmetric_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )

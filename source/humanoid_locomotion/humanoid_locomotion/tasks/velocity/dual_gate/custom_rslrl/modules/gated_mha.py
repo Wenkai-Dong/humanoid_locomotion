@@ -54,8 +54,9 @@ class GatedMHA(nn.Module):
             nn.Linear(embed_dim, embed_dim, bias=bias),
             nn.Sigmoid()
         )
-        self.q_norm = nn.RMSNorm(self.head_dim)
-        self.k_norm = nn.RMSNorm(self.head_dim)
+        self.query_norm = nn.LayerNorm(self.head_dim)
+        self.key_norm = nn.LayerNorm(self.head_dim)
+        self.output_norm = nn.LayerNorm(self.embed_dim)
 
         self._reset_parameters()
 
@@ -86,17 +87,16 @@ class GatedMHA(nn.Module):
         k = self.k_proj(key).view(batch_size, source_seq_len, self.num_heads, self.head_dim).transpose(1, 2)   # (N, H, S, E/H)
         v = self.v_proj(value).view(batch_size, source_seq_len, self.num_heads, self.head_dim).transpose(1, 2)   # (N, H, S, E/H)
 
-        q = self.q_norm(q)
-        k = self.k_norm(k)
+        q = self.query_norm(q)
+        k = self.key_norm(k)
 
         if need_weights:
             attn_output_weights = torch.softmax(torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1)
         else:
             attn_output_weights = None
 
-        output = F.scaled_dot_product_attention(q, k, v)
-
-        output = output.transpose(1, 2).flatten(2)    # (N, L, E)
+        output = F.scaled_dot_product_attention(q, k, v).transpose(1, 2).flatten(2) # (N, L, E)
+        output = self.output_norm(output)    # (N, L, E)
         output = self.gated(query) * output
         attn_output = self.o_proj(output)
 

@@ -38,7 +38,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         obs_normalization=True,
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="log"),
         cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16,61],
+            output_channels=[16, 48],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -51,12 +51,12 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         )
     )
     critic = RslRlCNNVelocityModelCfg(
-        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.moe_model:MoeModel",
-        hidden_dims=[256, 128],
+        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model:GatedMHAModel",
+        hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
         cnn_cfg=RslRlCNNModelCfg.CNNCfg(
-            output_channels=[16, 64],
+            output_channels=[16, 48],
             kernel_size=5,
             stride=1,
             dilation=1,
@@ -64,8 +64,8 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
             norm="layer",
             activation="elu",
             max_pool=False,
-            global_pool="max",
-            flatten=True,
+            global_pool="none",
+            flatten=False,
         )
     )
     algorithm = RslRlPpoVelocityAlgorithmCfg(

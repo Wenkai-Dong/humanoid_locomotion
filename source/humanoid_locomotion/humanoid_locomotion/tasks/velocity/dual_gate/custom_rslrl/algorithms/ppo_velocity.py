@@ -446,7 +446,7 @@ class PPOVelocity:
         self.critic = compile_model(self._raw_critic, mode)  # type: ignore
 
     @staticmethod
-    def construct_algorithm(obs: TensorDict, env: VecEnv, cfg: dict, device: str) -> PPO:
+    def construct_algorithm(obs: TensorDict, env: VecEnv, cfg: dict, device: str) -> PPOVelocity:
         """Construct the PPO algorithm."""
         # Resolve class callables
         alg_class: type[PPO] = resolve_callable(cfg["algorithm"].pop("class_name"))  # type: ignore
