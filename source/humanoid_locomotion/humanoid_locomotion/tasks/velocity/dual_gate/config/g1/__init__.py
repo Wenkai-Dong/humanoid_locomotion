@@ -217,3 +217,15 @@ gym.register(
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
+
+# TODO
+# DualGate-Dual-G1-v0
+gym.register(
+    id="DualGate-Dual-G1-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.dual_env_cfg:G1DualEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
+    },
+)

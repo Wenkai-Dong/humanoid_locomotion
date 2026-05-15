@@ -132,11 +132,22 @@ class G1AttentionEnvCfgv3_PLAY(G1AttentionEnvCfgv3):
     def __post_init__(self) -> None:
         # post init of parent
         super().__post_init__()
-        # Increase the length_s of episode
-        self.episode_length_s = 40.0
-        # make a smaller scene for play
+
         self.scene.num_envs = 32
-        self.scene.terrain.max_init_terrain_level = 9
+        self.scene.terrain.terrain_generator.num_rows = 1
+        self.scene.terrain.terrain_generator.difficulty_range = (0.9, 1.0)
+        # Basic settings
+        self.commands.base_velocity.resampling_time_range = (30, 30)
+        self.commands.base_velocity.rel_standing_envs = 0.0
+        self.commands.base_velocity.ranges.lin_vel_x = (1.5, 1.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
+        self.commands.base_velocity.ranges.heading = (-0.0, 0.0)
+        # MDP settings
+        self.events.reset_base.params["pose_range"]["x"] = (-0.0, 0.0)
+        self.events.reset_base.params["pose_range"]["y"] = (-0.0, 0.0)
+        self.events.reset_base.params["pose_range"]["yaw"] = (-0.0, 0.0)
+        # Recoder Settings
+        self.terminations.success = DoneTerm(func=mdp.subterrain_out_of_bounds, params={"distance_buffer": 0.0})
 
 @configclass
 class G1AttentionEnvCfgv3_EVAL(G1AttentionEnvCfgv3):
