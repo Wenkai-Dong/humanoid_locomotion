@@ -146,6 +146,8 @@ class AEModel(MLPModel):
             self.right_decoder.init_weights(
                 [2 ** 0.5, None, 1.0]
             )
+            self.left_norm = nn.LayerNorm(64)
+            self.right_norm = nn.LayerNorm(64)
 
         if obs_set == "actor":
             self.linear = nn.Linear(obs_dim_1d + 3 + 64, 64)
@@ -185,6 +187,8 @@ class AEModel(MLPModel):
         # get velocity and privilege
         if self.obs_groups[0] == "actor":
             velocity, privilege_l, privilege_r = self.get_privilege(obs)
+            privilege_l = self.left_norm(privilege_l)
+            privilege_r = self.right_norm(privilege_r)
             latent_1d_l = torch.cat((velocity.detach(), latent_1d, privilege_l), dim=-1)
             latent_1d_r = torch.cat((velocity.detach(), latent_1d, privilege_r), dim=-1)
             latent_1d_p = torch.stack([latent_1d_l, latent_1d_r], dim=1)
@@ -200,7 +204,7 @@ class AEModel(MLPModel):
         latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 2, 64)
         latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 128)
         # Concatenate 1D and CNN latents
-        return torch.cat([velocity.detach(), latent_1d, latent_mha], dim=-1)   # (N, 355)
+        return torch.cat([velocity.detach(), latent_1d, latent_mha, privilege_l, privilege_r], dim=-1)   # (N, 355)
 
     def get_privilege(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -258,7 +262,7 @@ class AEModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 128 + 3
+            return self.obs_dim + 128 + 3 + 128
         else:
             return self.obs_dim + 64
 
