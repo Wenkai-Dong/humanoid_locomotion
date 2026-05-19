@@ -200,7 +200,7 @@ class AEModel(MLPModel):
         latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 2, 64)
         latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 128)
         # Concatenate 1D and CNN latents
-        return torch.cat([velocity.detach(), latent_1d, privilege_l, privilege_r, latent_mha], dim=-1)   # (N, 355)
+        return torch.cat([velocity.detach(), latent_1d, latent_mha], dim=-1)   # (N, 355)
 
     def get_privilege(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -258,7 +258,7 @@ class AEModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 128 + 3 + 128
+            return self.obs_dim + 128 + 3
         else:
             return self.obs_dim + 64
 
