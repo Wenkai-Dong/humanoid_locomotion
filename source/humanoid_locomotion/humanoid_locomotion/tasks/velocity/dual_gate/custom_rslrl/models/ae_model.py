@@ -1,4 +1,3 @@
-# TODO
 # Copyright (c) 2021-2026, ETH Zurich and NVIDIA CORPORATION
 # All rights reserved.
 #
@@ -19,7 +18,7 @@ from rsl_rl.modules import CNN, HiddenState
 from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import CNN1D
 
 
-class DualModel(MLPModel):
+class AEModel(MLPModel):
     """CNN-based neural model.
 
     This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
@@ -131,8 +130,25 @@ class DualModel(MLPModel):
             )
             self.velocity = None
 
+            self.left_encoder = MLP(128, 64, (256, 128), activation)
+            self.left_encoder.init_weights(
+                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
+            )
+            self.right_encoder = MLP(128, 64, (256, 128), activation)
+            self.right_encoder.init_weights(
+                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
+            )
+            self.left_decoder = MLP(64, 30, (64, ), activation)
+            self.left_decoder.init_weights(
+                [2 ** 0.5, None, 1.0]
+            )
+            self.right_decoder = MLP(64, 30, (64, ), activation)
+            self.right_decoder.init_weights(
+                [2 ** 0.5, None, 1.0]
+            )
+
         if obs_set == "actor":
-            self.linear = nn.Linear(obs_dim_1d + 3, 64)
+            self.linear = nn.Linear(obs_dim_1d + 3 + 64, 64)
         else:
             self.linear = nn.Linear(obs_dim_1d, 64)
         nn.init.orthogonal_(self.linear.weight, gain=1.0)
@@ -166,11 +182,13 @@ class DualModel(MLPModel):
             obs_current = obs
         # Concatenate 1D observation groups and normalize
         latent_1d = super().get_latent(obs_current)
-        # get velocity
+        # get velocity and privilege
         if self.obs_groups[0] == "actor":
-            velocity = self.get_velocity(obs).detach()
-            latent_1d = torch.cat((velocity, latent_1d), dim=-1)
-        latent_1d_encoder = self.linear(latent_1d).unsqueeze(1) # (N, 1, 64)
+            velocity, privilege_l, privilege_r = self.get_privilege(obs)
+            latent_1d_l = torch.cat((velocity.detach(), latent_1d, privilege_l), dim=-1)
+            latent_1d_r = torch.cat((velocity.detach(), latent_1d, privilege_r), dim=-1)
+            latent_1d_p = torch.stack([latent_1d_l, latent_1d_r], dim=1)
+        latent_1d_encoder = self.linear(latent_1d_p) # (N, 2, 64)
         # Process 2D observation groups with CNNs
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:, 2:3, ...]) for obs_group in self.obs_groups_2d]
         latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 48, 13, 18)
@@ -179,12 +197,12 @@ class DualModel(MLPModel):
         latent_mapping = torch.cat([latent_cnn, latent_position], dim=-1)   # (N, 234, 64)
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
-        latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 1, 64)
-        latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 64)
+        latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 2, 64)
+        latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 128)
         # Concatenate 1D and CNN latents
-        return torch.cat([latent_1d, latent_mha], dim=-1)   # (N, 128)
+        return torch.cat([velocity.detach(), latent_1d, privilege_l, privilege_r, latent_mha], dim=-1)   # (N, 355)
 
-    def get_velocity(
+    def get_privilege(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ):
         """Build the base velocity by concatenating and normalizing selected observation groups."""
@@ -192,7 +210,11 @@ class DualModel(MLPModel):
         obs_history = (obs["actor"] - self.obs_normalizer._mean) / (self.obs_normalizer._std + self.obs_normalizer.eps)
         latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
         self.velocity = self.velocity_estimator(latent_history).float()
-        return self.velocity
+        privilege_en_l = self.left_encoder(latent_history)
+        privilege_en_r = self.right_encoder(latent_history)
+        self.privilege_de_l = self.left_decoder(privilege_en_l).float()
+        self.privilege_de_r = self.right_decoder(privilege_en_r).float()
+        return self.velocity, privilege_en_l, privilege_en_r
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""
@@ -236,7 +258,7 @@ class DualModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 64 + 3
+            return self.obs_dim + 128 + 3 + 128
         else:
             return self.obs_dim + 64
 

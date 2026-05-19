@@ -1,4 +1,3 @@
-# TODO
 # Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
@@ -20,30 +19,20 @@ class G1DualEnvCfg(G1AttentionEnvCfgv3):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
-        self.scene.l_foot_height = RayCasterCfg(
-            prim_path="{ENV_REGEX_NS}/Robot/left_ankle_roll_link",
-            offset=RayCasterCfg.OffsetCfg(pos=(0.04, 0.01, 20)),
-            ray_alignment="yaw",
-            pattern_cfg=patterns.GridPatternCfg(resolution=0.03, size=[0.18, 0.05]),
-            debug_vis=False,
-            mesh_prim_paths=["/World/ground"],
-        )
-        self.scene.r_foot_height = RayCasterCfg(
-            prim_path="{ENV_REGEX_NS}/Robot/right_ankle_roll_link",
-            offset=RayCasterCfg.OffsetCfg(pos=(0.04, 0.01, 20)),
-            ray_alignment="yaw",
-            pattern_cfg=patterns.GridPatternCfg(resolution=0.03, size=[0.18, 0.05]),
-            debug_vis=False,
-            mesh_prim_paths=["/World/ground"],
-        )
         # privilege observation
         self.observations.critic.joint_effort_l = ObsTerm(
             func=mdp.joint_effort,
             params={
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["left_hip_pitch_joint", "left_knee_joint", "left_ankle_pitch_joint"],
+                    joint_names=["left_hip_.*_joint", "left_knee_joint", "left_ankle_.*_joint"],
                 )
+            }
+        )
+        self.observations.critic.body_incoming_wrench_l = ObsTerm(
+            func=mdp.body_incoming_wrench,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names="left_ankle_roll_link"),
             }
         )
         self.observations.critic.contact_forces_l = ObsTerm(
@@ -64,24 +53,25 @@ class G1DualEnvCfg(G1AttentionEnvCfgv3):
                 "asset_cfg": SceneEntityCfg("robot", body_names="left_ankle_roll_link"),
             }
         )
-        self.observations.critic.lin_vel_w_root_l = ObsTerm(
-            func=mdp.body_lin_vel_w_root,
+        self.observations.critic.body_vel_w_root_l = ObsTerm(
+            func=mdp.body_vel_w_root,
             params={
                 "asset_cfg": SceneEntityCfg("robot", body_names="left_ankle_roll_link"),
             }
-        )
-        self.observations.critic.foot_scan_l = ObsTerm(
-            func=mdp.body_height_scan,
-            params={"sensor_cfg": SceneEntityCfg("l_foot_height"), "offset": 0.035},
-            clip=(-1.0, 1.0),
         )
         self.observations.critic.joint_effort_r = ObsTerm(
             func=mdp.joint_effort,
             params={
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["right_hip_pitch_joint", "right_knee_joint", "right_ankle_pitch_joint"],
+                    joint_names=["right_hip_.*_joint", "right_knee_joint", "right_ankle_.*_joint"],
                 )
+            }
+        )
+        self.observations.critic.body_incoming_wrench_r = ObsTerm(
+            func=mdp.body_incoming_wrench,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names="right_ankle_roll_link"),
             }
         )
         self.observations.critic.contact_forces_r = ObsTerm(
@@ -102,16 +92,11 @@ class G1DualEnvCfg(G1AttentionEnvCfgv3):
                 "asset_cfg": SceneEntityCfg("robot", body_names="right_ankle_roll_link"),
             }
         )
-        self.observations.critic.lin_vel_w_root_r = ObsTerm(
-            func=mdp.body_lin_vel_w_root,
+        self.observations.critic.body_vel_w_root_r = ObsTerm(
+            func=mdp.body_vel_w_root,
             params={
                 "asset_cfg": SceneEntityCfg("robot", body_names="right_ankle_roll_link"),
             }
-        )
-        self.observations.critic.foot_scan_r = ObsTerm(
-            func=mdp.body_height_scan,
-            params={"sensor_cfg": SceneEntityCfg("r_foot_height"), "offset": 0.035},
-            clip=(-1.0, 1.0),
         )
 
 

@@ -6,5 +6,6 @@
 """Learning algorithms."""
 
 from .ppo_velocity import PPOVelocity
+from .ppo_ae import PPOAE
 
-__all__ = ["PPOVelocity"]
+__all__ = ["PPOVelocity", "PPOAE"]

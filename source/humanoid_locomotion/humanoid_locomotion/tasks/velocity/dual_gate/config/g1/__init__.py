@@ -218,7 +218,6 @@ gym.register(
     },
 )
 
-# TODO
 # DualGate-Dual-G1-v0
 gym.register(
     id="DualGate-Dual-G1-v0",
@@ -226,6 +225,6 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.dual_env_cfg:G1DualEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
+        "ae_rsl_rl_cfg_entry_point": f"{agents.__name__}.ae_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )

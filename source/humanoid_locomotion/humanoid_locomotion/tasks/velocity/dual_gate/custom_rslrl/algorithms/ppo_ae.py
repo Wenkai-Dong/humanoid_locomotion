@@ -21,7 +21,7 @@ from rsl_rl.storage import RolloutStorage
 from rsl_rl.utils import compile_model, resolve_callable, resolve_obs_groups, resolve_optimizer
 
 
-class PPOVelocity:
+class PPOAE:
     """Proximal Policy Optimization algorithm.
 
     Reference:
@@ -92,19 +92,23 @@ class PPOVelocity:
         self._raw_critic = self.critic
 
         # Create the optimizer
-        velocity_estimator_params = list(chain(
+        autoencoder_params = list(chain(
             self.actor.cnn1d.parameters(),
             self.actor.velocity_estimator.parameters(),
+            self.actor.left_encoder.parameters(),
+            self.actor.right_encoder.parameters(),
+            self.actor.left_decoder.parameters(),
+            self.actor.right_decoder.parameters()
         ))
-        velocity_estimator_ids = {id(p) for p in velocity_estimator_params}
+        autoencoder_ids = {id(p) for p in autoencoder_params}
         ppo_only_params = [
             p for p in dict.fromkeys(chain(self.actor.parameters(), self.critic.parameters()))
-            if id(p) not in velocity_estimator_ids
+            if id(p) not in autoencoder_ids
         ]
 
         self.optimizer = resolve_optimizer(optimizer)([
             {"params": ppo_only_params, "lr": learning_rate, "name": "ppo"},
-            {"params": velocity_estimator_params, "lr": 0.001, "name": "velocity_estimator"},
+            {"params": autoencoder_params, "lr": 0.001, "name": "velocity_estimator"},
         ])  # type: ignore
 
         # Add storage
@@ -217,6 +221,8 @@ class PPOVelocity:
         mean_symmetry_loss = 0 if self.symmetry.use_mirror_loss else None
         # Velocity loss
         mean_velocity_loss = 0
+        # AE loss
+        mean_ae_loss = 0
         # Explained Variance
         mean_explained_variance = 0
 
@@ -315,6 +321,11 @@ class PPOVelocity:
             velocity_loss = F.mse_loss(self.actor.velocity, batch.observations["critic"][:, :3])
             loss += 1.0 * velocity_loss
 
+            # AE loss
+            privilege = (batch.observations["critic"] - self.critic.obs_normalizer._mean) / (self.critic.obs_normalizer._std + self.critic.obs_normalizer.eps)
+            ae_loss = F.mse_loss(torch.stack([self.actor.privilege_de_l, self.actor.privilege_de_r], dim=1), privilege[:, 99:].reshape(-1, 2, 30))
+            loss += 1.0 * ae_loss
+
             # Compute the gradients for PPO
             self.optimizer.zero_grad()
             loss.backward()
@@ -348,6 +359,9 @@ class PPOVelocity:
             # Velocity loss
             if velocity_loss is not None:
                 mean_velocity_loss += velocity_loss.item()
+            # AE loss
+            if ae_loss is not None:
+                mean_ae_loss += ae_loss.item()
             # Explained Variance
             with torch.inference_mode():
                 explained_variance = 1 - torch.var(batch.returns - values) / (torch.var(batch.returns) + 1e-8)
@@ -363,6 +377,7 @@ class PPOVelocity:
         if mean_symmetry_loss is not None:
             mean_symmetry_loss /= num_updates
         mean_velocity_loss /= num_updates
+        mean_ae_loss /= num_updates
         mean_explained_variance /= num_updates
 
         # Construct the loss dictionary
@@ -376,6 +391,7 @@ class PPOVelocity:
         if self.symmetry.use_mirror_loss:
             loss_dict["symmetry"] = mean_symmetry_loss
         loss_dict["velocity"] = mean_velocity_loss
+        loss_dict["ae"] = mean_ae_loss
         loss_dict["explained_variance"] = mean_explained_variance
 
         # Clear the storage

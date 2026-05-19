@@ -15,9 +15,10 @@ from isaaclab_rl.rsl_rl import (
 from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.rl_cfg import (
     RslRlCNNVelocityModelCfg,
     RslRlPpoVelocityAlgorithmCfg,
+    RslRlPpoAEAlgorithmCfg,
     RslRlOnPolicyRunnerCfgNew,
 )
-from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1, g1_history
+from humanoid_locomotion.tasks.velocity.dual_gate.mdp.symmetry import g1, g1_history, g1_dual
 
 
 @configclass
@@ -25,16 +26,16 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
     num_steps_per_env = 24
     max_iterations = 30000
     save_interval = 300
-    experiment_name = "dualgate_gated_g1_v0"
+    experiment_name = ""
     obs_groups = {
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
     }
-    wandb_project = "velocity"
-    logger = "wandb"
+    # wandb_project = "velocity"
+    # logger = "wandb"
     torch_compile_mode = None   # "default", "max-autotune-no-cudagraphs"
     actor = RslRlCNNVelocityModelCfg(
-        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model:GatedMHAModel",
+        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.ae_model:AEModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -53,7 +54,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         )
     )
     critic = RslRlCNNVelocityModelCfg(
-        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model:GatedMHAModel",
+        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.mha_model:MHAModel",
         hidden_dims=[512, 256, 128],
         activation="elu",
         obs_normalization=True,
@@ -70,7 +71,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
             flatten=False,
         )
     )
-    algorithm = RslRlPpoVelocityAlgorithmCfg(
+    algorithm = RslRlPpoAEAlgorithmCfg(
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
@@ -84,7 +85,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         desired_kl=0.01,
         max_grad_norm=1.0,
         symmetry_cfg=RslRlSymmetryCfg(
-            use_data_augmentation=True, data_augmentation_func=g1_history.compute_symmetric_states
+            use_data_augmentation=True, data_augmentation_func=g1_dual.compute_symmetric_states
         ),
         share_cnn_encoders=False,
     )
