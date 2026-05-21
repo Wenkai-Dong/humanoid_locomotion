@@ -114,8 +114,6 @@ class VAEModel(MLPModel):
                 nn.GroupNorm(num_groups=8, num_channels=32),
                 nn.ELU(),
                 nn.Flatten(1),
-                # nn.Linear(in_features=800, out_features=128),
-                # nn.ELU(),
                 MLP(800, 64, (256, 128), activation, activation)
             )
             # Initialize the weights of the 1D-CNN
@@ -129,29 +127,21 @@ class VAEModel(MLPModel):
                 nn.Linear(64, 8),
                 nn.Hardtanh(min_val=-5.0, max_val=5.0) # to avoid numerical issues
                 )
-            # self.left_mean_latent.init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
-            # self.left_logvar_latent[0].init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
 
             self.right_mean_latent = nn.Linear(64, 8)
             self.right_logvar_latent = nn.Sequential(
                 nn.Linear(64, 8),
                 nn.Hardtanh(min_val=-5.0, max_val=5.0)  # to avoid numerical issues
             )
-            # self.right_mean_latent.init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
-            # self.right_logvar_latent[0].init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
 
             self.encode_mean_vel = nn.Linear(64, 3)
             self.encode_logvar_vel = nn.Sequential(
                 nn.Linear(64, 3),
                 nn.Hardtanh(min_val=-5., max_val=5.),
             )
-            # self.encode_mean_vel.init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
-            # self.encode_logvar_vel[0].init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
 
             self.left_decoder = MLP(8 + 3, 30, (256, 128), activation)
             self.right_decoder = MLP(8 + 3, 30, (256, 128), activation)
-            # self.left_decoder.init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
-            # self.right_decoder.init_weights([2 ** 0.5, None, 2 ** 0.5, None, 0.01])
 
             self.left_norm = nn.LayerNorm(8)
             self.right_norm = nn.LayerNorm(8)

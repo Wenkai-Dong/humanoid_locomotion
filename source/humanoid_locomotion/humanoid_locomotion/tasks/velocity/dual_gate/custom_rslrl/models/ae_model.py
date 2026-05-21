@@ -114,8 +114,7 @@ class AEModel(MLPModel):
                 nn.GroupNorm(num_groups=8, num_channels=32),
                 nn.ELU(),
                 nn.Flatten(1),
-                nn.Linear(in_features=800, out_features=128),
-                nn.ELU(),
+                MLP(800, 64, (256, 128), activation, activation)
             )
             # Initialize the weights of the 1D-CNN
             for idx, module in enumerate(self.cnn1d):
@@ -123,34 +122,24 @@ class AEModel(MLPModel):
                     torch.nn.init.kaiming_normal_(module.weight)
                     torch.nn.init.zeros_(module.bias)  # type: ignore
 
-            self.velocity_estimator = MLP(128, 3, (64, 32), activation)
-            # Initialize the weights of the MLP
-            self.velocity_estimator.init_weights(
-                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
-            )
-            self.velocity = None
+            self.velocity_estimator = nn.Linear(64, 3)
 
-            self.left_encoder = MLP(128, 64, (256, 128), activation)
-            self.left_encoder.init_weights(
-                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
-            )
-            self.right_encoder = MLP(128, 64, (256, 128), activation)
-            self.right_encoder.init_weights(
-                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
-            )
-            self.left_decoder = MLP(64, 30, (64, ), activation)
+            self.left_encoder = nn.Linear(64, 8)
+            self.right_encoder = nn.Linear(64, 8)
+
+            self.left_decoder = MLP(8 + 3, 30, (256, 128), activation)
             self.left_decoder.init_weights(
-                [2 ** 0.5, None, 1.0]
+                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
             )
-            self.right_decoder = MLP(64, 30, (64, ), activation)
+            self.right_decoder = MLP(8 + 3, 30, (256, 128), activation)
             self.right_decoder.init_weights(
-                [2 ** 0.5, None, 1.0]
+                [2 ** 0.5, None, 2 ** 0.5, None, 1.0]
             )
-            self.left_norm = nn.LayerNorm(64)
-            self.right_norm = nn.LayerNorm(64)
+            self.left_norm = nn.LayerNorm(8)
+            self.right_norm = nn.LayerNorm(8)
 
         if obs_set == "actor":
-            self.linear = nn.Linear(obs_dim_1d + 3 + 64, 64)
+            self.linear = nn.Linear(obs_dim_1d + 3 + 8, 64)
         else:
             self.linear = nn.Linear(obs_dim_1d, 64)
         nn.init.orthogonal_(self.linear.weight, gain=1.0)
@@ -186,7 +175,7 @@ class AEModel(MLPModel):
         latent_1d = super().get_latent(obs_current)
         # get velocity and privilege
         if self.obs_groups[0] == "actor":
-            velocity, privilege_l, privilege_r = self.get_privilege(obs)
+            velocity, privilege_l, privilege_r = self.ae(obs)
             privilege_l = self.left_norm(privilege_l)
             privilege_r = self.right_norm(privilege_r)
             latent_1d_l = torch.cat((velocity.detach(), latent_1d, privilege_l), dim=-1)
@@ -206,18 +195,19 @@ class AEModel(MLPModel):
         # Concatenate 1D and CNN latents
         return torch.cat([velocity.detach(), latent_1d, latent_mha, privilege_l, privilege_r], dim=-1)   # (N, 355)
 
-    def get_privilege(
+    def ae(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ):
         """Build the base velocity by concatenating and normalizing selected observation groups."""
         # Normalize hitstory observation groups and normalize
         obs_history = (obs["actor"] - self.obs_normalizer._mean) / (self.obs_normalizer._std + self.obs_normalizer.eps)
         latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
-        self.velocity = self.velocity_estimator(latent_history).float()
+        self.velocity = self.velocity_estimator(latent_history)
         privilege_en_l = self.left_encoder(latent_history)
         privilege_en_r = self.right_encoder(latent_history)
-        self.privilege_de_l = self.left_decoder(privilege_en_l).float()
-        self.privilege_de_r = self.right_decoder(privilege_en_r).float()
+
+        self.privilege_de_l = self.left_decoder(torch.cat([privilege_en_l, self.velocity], dim=-1))
+        self.privilege_de_r = self.right_decoder(torch.cat([privilege_en_r, self.velocity], dim=-1))
         return self.velocity, privilege_en_l, privilege_en_r
 
     def as_jit(self) -> nn.Module:
@@ -262,7 +252,7 @@ class AEModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 128 + 3 + 128
+            return self.obs_dim + 128 + 3 + 16
         else:
             return self.obs_dim + 64
 

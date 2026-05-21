@@ -318,13 +318,14 @@ class PPOAE:
                     loss = loss + self.symmetry.mirror_loss_coeff * symmetry_loss
 
             # Velocity loss
-            velocity_loss = F.mse_loss(self.actor.velocity, batch.observations["critic"][:, :3])
-            loss += 1.0 * velocity_loss
 
             # AE loss
-            privilege = (batch.observations["critic"] - self.critic.obs_normalizer._mean) / (self.critic.obs_normalizer._std + self.critic.obs_normalizer.eps)
-            ae_loss = F.mse_loss(torch.stack([self.actor.privilege_de_l, self.actor.privilege_de_r], dim=1), privilege[:, 99:].reshape(-1, 2, 30))
-            loss += 1.0 * ae_loss
+            privilege = ((batch.observations["critic"] - self.critic.obs_normalizer._mean) /
+                         (self.critic.obs_normalizer._std + self.critic.obs_normalizer.eps))
+            velocity_loss = F.mse_loss(self.actor.velocity.float(), batch.observations["critic"][:, :3])
+            ae_loss = F.mse_loss(torch.stack([self.actor.privilege_de_l.float(), self.actor.privilege_de_r.float()], dim=1),
+                                 privilege[:, 99:].reshape(-1, 2, 30))
+            loss = loss + velocity_loss + ae_loss
 
             # Compute the gradients for PPO
             self.optimizer.zero_grad()

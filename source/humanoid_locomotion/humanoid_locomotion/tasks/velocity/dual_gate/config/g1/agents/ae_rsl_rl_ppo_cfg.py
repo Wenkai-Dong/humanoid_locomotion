@@ -26,7 +26,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
     num_steps_per_env = 24
     max_iterations = 30000
     save_interval = 300
-    experiment_name = ""
+    experiment_name = "ae"
     obs_groups = {
         "actor": ["actor", "actor_map"],
         "critic": ["critic", "critic_map"],
