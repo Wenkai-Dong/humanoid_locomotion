@@ -7,5 +7,6 @@
 
 from .ppo_velocity import PPOVelocity
 from .ppo_ae import PPOAE
+from .ppo_vae import PPOVAE
 
-__all__ = ["PPOVelocity", "PPOAE"]
+__all__ = ["PPOVelocity", "PPOAE", "PPOVAE"]
