@@ -8,5 +8,6 @@
 from .ppo_velocity import PPOVelocity
 from .ppo_ae import PPOAE
 from .ppo_vae import PPOVAE
+from .ppo_swav import PPOSwAV
 
-__all__ = ["PPOVelocity", "PPOAE", "PPOVAE"]
+__all__ = ["PPOVelocity", "PPOAE", "PPOVAE", "PPOSwAV"]

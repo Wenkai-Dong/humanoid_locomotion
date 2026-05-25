@@ -51,8 +51,12 @@ class RslRlPpoVAEAlgorithmCfg(RslRlPpoAlgorithmCfg):
     """Configuration for the Velocity Estimator PPO algorithm."""
 
     class_name: str = "humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.algorithms.ppo_vae:PPOVAE"
-    """The name of the Velocity Estimator PPO algorithm. Defaults to 'VelocityEstimatorPPOAlgorithm'"""
 
+@configclass
+class RslRlPpoSwAVAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    """Configuration for the Velocity Estimator PPO algorithm."""
+
+    class_name: str = "humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.algorithms.ppo_swav:PPOSwAV"
 
 #########################
 # Runner configurations #

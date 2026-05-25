@@ -10,6 +10,7 @@ from .mha_model import MHAModel
 from .gated_model import GatedMHAModel
 from .ae_model import AEModel
 from .vae_model import VAEModel
+from .swav_model import SwAVModel
 
 __all__ = [
     "CNNVelocityModel",
@@ -17,4 +18,5 @@ __all__ = [
     "GatedMHAModel",
     "AEModel",
     "VAEModel",
+    "SwAVModel",
 ]
