@@ -92,7 +92,7 @@ class PPOVAE:
         self._raw_critic = self.critic
 
         # Create the optimizer
-        vae_params = list(chain(
+        self.vae_params = list(chain(
             self.actor.cnn1d.parameters(),
             self.actor.left_mean_latent.parameters(),
             self.actor.left_logvar_latent.parameters(),
@@ -103,15 +103,15 @@ class PPOVAE:
             self.actor.left_decoder.parameters(),
             self.actor.right_decoder.parameters()
         ))
-        vae_ids = {id(p) for p in vae_params}
-        ppo_params = [
+        vae_ids = {id(p) for p in self.vae_params}
+        self.ppo_params = [
             p for p in dict.fromkeys(chain(self.actor.parameters(), self.critic.parameters()))
             if id(p) not in vae_ids
         ]
 
         self.optimizer = resolve_optimizer(optimizer)([
-            {"params": ppo_params, "lr": learning_rate, "name": "ppo"},
-            {"params": vae_params, "lr": 0.001, "name": "vae"},
+            {"params": self.ppo_params, "lr": learning_rate, "name": "ppo"},
+            {"params": self.vae_params, "lr": 0.001, "name": "vae"},
         ])  # type: ignore
 
         # Add storage
@@ -347,8 +347,8 @@ class PPOVAE:
                 self.reduce_parameters()
 
             # Apply the gradients for PPO
-            nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-            nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.ppo_params, self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.vae_params, 10.0)
             self.optimizer.step()
             # Apply the gradients for RND
             if self.rnd:
