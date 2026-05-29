@@ -231,5 +231,6 @@ gym.register(
         "swav_rsl_rl_cfg_entry_point": f"{agents.__name__}.swav_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "swav_s_rsl_rl_cfg_entry_point": f"{agents.__name__}.swav_s_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "concurrent_rsl_rl_cfg_entry_point": f"{agents.__name__}.concurrent_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "gated_swav_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_swav_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
