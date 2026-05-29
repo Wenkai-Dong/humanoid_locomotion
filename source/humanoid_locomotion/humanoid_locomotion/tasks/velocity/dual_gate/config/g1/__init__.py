@@ -194,6 +194,7 @@ gym.register(
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "ame1_rsl_rl_cfg_entry_point": f"{agents.__name__}.ame1_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "ame2_rsl_rl_cfg_entry_point": f"{agents.__name__}.ame2_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
