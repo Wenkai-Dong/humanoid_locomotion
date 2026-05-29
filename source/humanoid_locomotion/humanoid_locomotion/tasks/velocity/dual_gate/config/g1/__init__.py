@@ -193,6 +193,7 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "ame1_rsl_rl_cfg_entry_point": f"{agents.__name__}.ame1_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
