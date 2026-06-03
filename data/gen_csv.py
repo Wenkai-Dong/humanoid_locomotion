@@ -4,13 +4,17 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-hdf5_dir = Path("C:\\Users\\395\\OneDrive\\data\\Attention-G1-v3\\gated_mha\\2026-05-13_19-09-38\\model_29000")
+hdf5_dir = Path("C:\\Users\\395\\OneDrive\\data\\Dual-G1-v0\\gated_swav_v1\\2026-05-29_15-58-14\\model_27600")
 criteria_records = []
 error_recorders = []
 
 for hdf5_path in sorted(hdf5_dir.glob("*.hdf5")):
     parts = hdf5_path.parts
     cmd_vel = float(re.search(r"lin_vel_x_(-?\d+\.?\d*)", hdf5_path.stem).group(1))
+    if "difficulty" in hdf5_path.stem:
+        difficulty = float(re.search(r"difficulty_(-?\d+\.?\d*)", hdf5_path.stem).group(1))
+    else:
+        difficulty = None
 
     with h5py.File(hdf5_path, 'r') as f:
         data_group = f["data"]
@@ -29,6 +33,7 @@ for hdf5_path in sorted(hdf5_dir.glob("*.hdf5")):
                     "agent": parts[-4],
                     "time": parts[-3],
                     "checkpoint": parts[-2],
+                    "difficulty": difficulty,
                     "cmd_vel": cmd_vel,
                     "demo_id": demo_id,
                     "type": err_type,
@@ -42,6 +47,7 @@ for hdf5_path in sorted(hdf5_dir.glob("*.hdf5")):
                 "agent": parts[-4],
                 "time": parts[-3],
                 "checkpoint": parts[-2],
+                "difficulty": difficulty,
                 "cmd_vel": cmd_vel,
                 "demo_id": int(demo_name.split("_")[1]),
                 "success": demo.attrs["success"],
@@ -56,8 +62,8 @@ for hdf5_path in sorted(hdf5_dir.glob("*.hdf5")):
 df_error = pd.DataFrame(error_recorders)
 df_criteria = pd.DataFrame(criteria_records)
 
-df_error = df_error.sort_values(by=["cmd_vel", "demo_id", "type"]).reset_index(drop=True)
-df_criteria = df_criteria.sort_values(by=["cmd_vel", "demo_id"]).reset_index(drop=True)
+df_error = df_error.sort_values(by=["difficulty", "cmd_vel", "demo_id", "type"]).reset_index(drop=True)
+df_criteria = df_criteria.sort_values(by=["difficulty", "cmd_vel", "demo_id"]).reset_index(drop=True)
 
 out_dir = hdf5_dir
 df_error.to_csv(out_dir / "tracking_error.csv", index=False)

@@ -35,6 +35,7 @@ parser.add_argument(
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 parser.add_argument("--velocity", type=str, default=None, help="Change the velocity of the agent.")
+parser.add_argument("--difficulty", type=str, default=None, help="Change the difficulty_range of the agent.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -135,11 +136,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.log_dir = log_dir
     if args_cli.velocity:
         env_cfg.commands.base_velocity.ranges.lin_vel_x = (float(args_cli.velocity), float(args_cli.velocity))
+    if args_cli.difficulty:
+        env_cfg.scene.terrain.terrain_generator.difficulty_range = (float(args_cli.difficulty), float(args_cli.difficulty))
 
     lin_vel_x = env_cfg.commands.base_velocity.ranges.lin_vel_x[0]
+    difficulty = env_cfg.scene.terrain.terrain_generator.difficulty_range[0]
     base_filename = os.path.splitext(os.path.basename(resume_path))[0]
     env_cfg.recorders.dataset_export_dir_path = os.path.join(log_dir, base_filename)
-    env_cfg.recorders.dataset_filename = "lin_vel_x" + f"_{lin_vel_x}"
+    env_cfg.recorders.dataset_filename = "lin_vel_x" + f"_{lin_vel_x}" + "_difficulty" + f"_{difficulty}"
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
