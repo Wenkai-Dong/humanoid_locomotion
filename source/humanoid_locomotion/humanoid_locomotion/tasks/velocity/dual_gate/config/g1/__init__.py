@@ -230,6 +230,7 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": f"{__name__}.dual_env_cfg:G1DualEnvCfg",
         "ae_rsl_rl_cfg_entry_point": f"{agents.__name__}.ae_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "ae_rsl_rl_cfg_v1_entry_point": f"{agents.__name__}.ae_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerCfg",
         "vae_rsl_rl_cfg_entry_point": f"{agents.__name__}.vae_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "vae_d_rsl_rl_cfg_entry_point": f"{agents.__name__}.vae_d_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "swav_rsl_rl_cfg_entry_point": f"{agents.__name__}.swav_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
