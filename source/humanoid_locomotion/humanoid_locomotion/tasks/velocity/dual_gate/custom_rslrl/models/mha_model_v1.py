@@ -196,7 +196,7 @@ class MHAModel(MLPModel):
             velocity = self.get_velocity(obs).detach()
             latent_1d = torch.cat((velocity, latent_1d), dim=-1)
         latent_1d_linear = self.linear(latent_1d).unsqueeze(1)
-        privilege_obs = self.privilege_normalizer(obs_current["critic"][:, 99:])
+        privilege_obs = self.privilege_normalizer(obs["critic"][:, 99:])
         privilege_latent = self.linear_z(privilege_obs.reshape(-1, 2, 30))
         latent_1d_encoder = torch.cat([latent_1d_linear, privilege_latent], dim=1)
         # Process 2D observation groups with CNNs
@@ -223,6 +223,10 @@ class MHAModel(MLPModel):
         latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
         self.velocity = self.velocity_estimator(latent_history)
         return self.velocity
+
+    def update_privilege_normalizer(self, obs: TensorDict) -> None:
+        # Update the normalizer parameters
+        self.privilege_normalizer.update(obs["critic"][:, 99:])  # type: ignore
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""

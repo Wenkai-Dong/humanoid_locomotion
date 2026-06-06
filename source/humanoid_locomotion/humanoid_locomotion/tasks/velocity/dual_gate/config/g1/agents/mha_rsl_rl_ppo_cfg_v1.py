@@ -71,6 +71,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfgNew):
         )
     )
     algorithm = RslRlPpoVelocityAlgorithmCfg(
+        class_name="humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.algorithms.ppo_mha:PPOVelocity",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
