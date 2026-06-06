@@ -223,6 +223,10 @@ class PPOSwAV:
         mean_velocity_loss = 0
         # SwAV loss
         mean_swav_loss = 0
+        mean_H_cond = 0
+        mean_H_marg = 0
+        mean_mutual_info = 0
+        mean_z_std = 0
         # Explained Variance
         mean_explained_variance = 0
 
@@ -323,7 +327,7 @@ class PPOSwAV:
             privilege = ((batch.observations["critic"] - self.critic.obs_normalizer._mean) /
                          (self.critic.obs_normalizer._std + self.critic.obs_normalizer.eps))[:, 99:].reshape(-1, 30)
             velocity = batch.observations["critic"][:, :3]
-            velocity_loss, swav_loss = self.actor.update(privilege, velocity)
+            velocity_loss, swav_loss, H_cond, H_marg, mutual_info, z_std= self.actor.update(privilege, velocity)
             loss = loss + velocity_loss + swav_loss
 
             # Compute the gradients for PPO
@@ -361,6 +365,10 @@ class PPOSwAV:
                 mean_velocity_loss += velocity_loss.item()
             # SwAV loss
             mean_swav_loss += swav_loss.item()
+            mean_H_cond += H_cond.item()
+            mean_H_marg += H_marg.item()
+            mean_mutual_info += mutual_info.item()
+            mean_z_std += z_std.item()
             # Explained Variance
             with torch.inference_mode():
                 explained_variance = 1 - torch.var(batch.returns - values) / (torch.var(batch.returns) + 1e-8)
@@ -377,6 +385,10 @@ class PPOSwAV:
             mean_symmetry_loss /= num_updates
         mean_velocity_loss /= num_updates
         mean_swav_loss /= num_updates
+        mean_H_cond /= num_updates
+        mean_H_marg /= num_updates
+        mean_mutual_info /= num_updates
+        mean_z_std /= num_updates
         mean_explained_variance /= num_updates
 
         # Construct the loss dictionary
@@ -391,6 +403,10 @@ class PPOSwAV:
             loss_dict["symmetry"] = mean_symmetry_loss
         loss_dict["velocity"] = mean_velocity_loss
         loss_dict["swav"] = mean_swav_loss
+        loss_dict["H_cond"] = mean_H_cond
+        loss_dict["H_marg"] = mean_H_marg
+        loss_dict["mutual_info"] = mean_mutual_info
+        loss_dict["z_std"] = mean_z_std
         loss_dict["explained_variance"] = mean_explained_variance
 
         # Clear the storage

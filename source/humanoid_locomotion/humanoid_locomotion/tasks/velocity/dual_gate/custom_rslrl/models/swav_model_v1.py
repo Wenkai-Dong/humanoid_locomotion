@@ -234,7 +234,19 @@ class SwAVModel(MLPModel):
         # swav_loss = -0.5 * (q_s * log_p_t + q_t * log_p_s).mean()
         swav_loss = -0.5 * ((q_s * log_p_t).sum(-1) + (q_t * log_p_s).sum(-1)).mean()
         velocity_loss = F.mse_loss(pred_vel, vel)
-        return velocity_loss, swav_loss
+
+        with torch.no_grad():
+            p = F.softmax(score_s / self.temperature, dim=-1)
+            # H(C|X)
+            H_cond = -(p * (p + 1e-9).log()).sum(-1).mean()
+            # H(C)
+            marginal = p.mean(0)
+            H_marg = -(marginal * (marginal + 1e-9).log()).sum()
+            # I(X;C)
+            mutual_info = H_marg - H_cond
+            # std of z
+            z_std = z_s.std(0).mean()
+        return velocity_loss, swav_loss, H_cond, H_marg, mutual_info, z_std
 
     @torch.no_grad()
     def sinkhorn(self, out, eps=0.05, iters=3):
