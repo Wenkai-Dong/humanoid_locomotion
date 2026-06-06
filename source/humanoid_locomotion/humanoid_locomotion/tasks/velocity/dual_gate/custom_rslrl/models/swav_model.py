@@ -143,6 +143,7 @@ class SwAVModel(MLPModel):
         self.k_norm = nn.LayerNorm(64)
         self.mha = nn.MultiheadAttention(embed_dim=64, num_heads=16, batch_first=True)
         self.o_norm = nn.LayerNorm(64)
+        self.need_weights = False
 
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -172,7 +173,7 @@ class SwAVModel(MLPModel):
         latent_mapping = torch.cat([latent_cnn, latent_position], dim=-1)   # (N, 234, 64)
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
-        latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 2, 64)
+        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)    # (N, 2, 64)
         latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 128)
         # Concatenate 1D and CNN latents
         return torch.cat([velocity, latent_1d, latent_mha, z_l, z_r], dim=-1)   # (N, 355)

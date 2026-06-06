@@ -16,11 +16,10 @@ from typing import Any
 from rsl_rl.modules import MLP
 from rsl_rl.models.mlp_model import MLPModel
 from rsl_rl.modules import CNN, HiddenState
-from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import GatedMHA
 from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import CNN1D
 
 
-class GatedSwAVModel(MLPModel):
+class SwAVModel(MLPModel):
 
     def __init__(
         self,
@@ -35,7 +34,7 @@ class GatedSwAVModel(MLPModel):
         cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
         cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
     ) -> None:
-        self.temperature = 3.0
+        self.temperature = 0.1
         # Resolve observation groups and dimensions
         if obs[obs_set].dim() == 3:
             obs_current = obs.clone()
@@ -80,9 +79,7 @@ class GatedSwAVModel(MLPModel):
             distribution_cfg,
         )
         # Initialize the weights of the MLP
-        self.mlp.init_weights(
-            [2**0.5, None, 2**0.5, None, 2**0.5, None, 0.01]
-        )
+        self.mlp.init_weights([2**0.5, None, 2**0.5, None, 2**0.5, None, 0.01])
 
         # Register CNN encoders
         if isinstance(cnns, nn.ModuleDict):
@@ -117,17 +114,24 @@ class GatedSwAVModel(MLPModel):
                 if isinstance(module, nn.Conv1d):
                     torch.nn.init.kaiming_normal_(module.weight)
                     torch.nn.init.zeros_(module.bias)  # type: ignore
+            self.cnn1d[-1].init_weights([2**0.5, None, 2**0.5, None, 2**0.5, None, 2**0.5, None])
 
             self.encoder_velocity = MLP(256, 3, (64,), activation)
-            self.encoder_left = MLP(256, 8, (128, 64), activation)
-            self.encoder_right = MLP(256, 8, (128, 64), activation)
-            self.target = MLP(30, 8, (128, 64), activation)
-            self.proto = nn.Embedding(32, 8)
+            self.encoder_velocity.init_weights([2**0.5, None, 0.001])
+            self.encoder_left = MLP(256, 16, (128, 64), activation)
+            self.encoder_left.init_weights([2**0.5, None, 2**0.5, None, 0.001])
+            self.encoder_right = MLP(256, 16, (128, 64), activation)
+            self.encoder_right.init_weights([2**0.5, None, 2**0.5, None, 0.001])
+            self.target = MLP(30, 16, (128, 64), activation)
+            self.target.init_weights([2**0.5, None, 2**0.5, None, 0.001])
+            self.proto = nn.Embedding(32, 16)
 
-        self.linear = nn.Linear(obs_dim_1d + 8 + 3, 64)
-
+        self.linear = nn.Linear(obs_dim_1d + 3, 64)
+        self.linear_z = nn.Linear(16, 64)
         nn.init.orthogonal_(self.linear.weight, gain=1.0)
         nn.init.zeros_(self.linear.bias)
+        nn.init.orthogonal_(self.linear_z.weight, gain=1.0)
+        nn.init.zeros_(self.linear_z.bias)
 
         self.position = nn.Sequential(
             nn.Linear(3, 32),
@@ -148,10 +152,15 @@ class GatedSwAVModel(MLPModel):
             nn.LayerNorm([16, 13, 18]),
             nn.ELU(),
         )
+        for idx, module in enumerate(self.dilated_cnn):
+            if isinstance(module, nn.Conv2d):
+                torch.nn.init.kaiming_normal_(module.weight)
+                torch.nn.init.zeros_(module.bias)  # type: ignore
 
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
-        self.mha = GatedMHA(embed_dim=64, num_heads=16)
+        self.mha = nn.MultiheadAttention(embed_dim=64, num_heads=16, batch_first=True)
+        self.o_norm = nn.LayerNorm(64)
         self.need_weights = False
 
     def get_latent(
@@ -170,10 +179,10 @@ class GatedSwAVModel(MLPModel):
         if self.obs_groups[0] == "actor":
             velocity, z_l, z_r = self.swav(obs)
             velocity, z_l, z_r = velocity.detach(), z_l.detach(), z_r.detach()
-            latent_1d_l = torch.cat((velocity, latent_1d, z_l), dim=-1)
-            latent_1d_r = torch.cat((velocity, latent_1d, z_r), dim=-1)
-            latent_1d_p = torch.stack([latent_1d_l, latent_1d_r], dim=1)
-        latent_1d_encoder = self.linear(latent_1d_p) # (N, 2, 64)
+            z_l_linear = self.linear_z(z_l)    # (N, 64)
+            z_r_linear = self.linear_z(z_r)    # (N, 64)
+        latent_1d_linear = self.linear(torch.cat([velocity, latent_1d], dim=-1))    # (N, 64)
+        latent_1d_encoder = torch.stack([latent_1d_linear, z_l_linear, z_r_linear], dim=1)    # (N, 3, 64)
         # Process 2D observation groups with CNNs
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:, 2:3, ...]) for obs_group in self.obs_groups_2d]
         latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 32, 13, 18)
@@ -184,10 +193,10 @@ class GatedSwAVModel(MLPModel):
         latent_mapping = torch.cat([latent_cnn, latent_dilated, latent_position], dim=-1)   # (N, 234, 64)
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
-        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)    # (N, 2, 64)
-        latent_mha = latent_mha.flatten(1) # (N, 128)
+        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights) #(N, 3, 64)
+        latent_mha = self.o_norm(latent_mha).flatten(1)
         # Concatenate 1D and CNN latents
-        return torch.cat([velocity, latent_1d, latent_mha, z_l, z_r], dim=-1)   # (N, 355)
+        return torch.cat([velocity, latent_1d, latent_mha, z_l, z_r], dim=-1)
 
     def swav(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -195,20 +204,17 @@ class GatedSwAVModel(MLPModel):
         """Build the base velocity by concatenating and normalizing selected observation groups."""
         # Normalize hitstory observation groups and normalize
         obs_history = (obs["actor"] - self.obs_normalizer._mean) / (self.obs_normalizer._std + self.obs_normalizer.eps)
-        latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
-        self.velocity = self.encoder_velocity(latent_history)
-        z_l = self.encoder_left(latent_history)
-        z_r = self.encoder_right(latent_history)
-        z_l = F.normalize(z_l, dim=-1, p=2)
-        z_r = F.normalize(z_r, dim=-1, p=2)
-        self.z = torch.stack((z_l, z_r), dim=1).reshape(-1, 8)
+        latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())  # （N, 256)
+        self.velocity = self.encoder_velocity(latent_history)   # (N, 3)
+        z_l = F.normalize(self.encoder_left(latent_history), dim=-1, p=2)   # (N, 16)
+        z_r = F.normalize(self.encoder_right(latent_history), dim=-1, p=2)  # (N, 16)
+        self.z = torch.stack((z_l, z_r), dim=1).reshape(-1, 16) # (2N, 16)
         return self.velocity, z_l, z_r
 
     def update(self, privilege, vel):
         pred_vel = self.velocity.float()
-        z_s = self.z.float()    # (2N, 8)
-        z_t = self.target(privilege)    # (2N, 8)
-        z_t = F.normalize(z_t, dim=-1, p=2)
+        z_s = self.z.float()    # (2N, 16)
+        z_t = F.normalize(self.target(privilege), dim=-1, p=2)  # (2N, 16)
 
         with torch.no_grad():
             w = self.proto.weight.data.clone()
@@ -225,7 +231,8 @@ class GatedSwAVModel(MLPModel):
         log_p_s = F.log_softmax(score_s / self.temperature, dim=-1) # (2N, 32)
         log_p_t = F.log_softmax(score_t / self.temperature, dim=-1)
 
-        swav_loss = -0.5 * (q_s * log_p_t + q_t * log_p_s).mean()
+        # swav_loss = -0.5 * (q_s * log_p_t + q_t * log_p_s).mean()
+        swav_loss = -0.5 * ((q_s * log_p_t).sum(-1) + (q_t * log_p_s).sum(-1)).mean()
         velocity_loss = F.mse_loss(pred_vel, vel)
         return velocity_loss, swav_loss
 
@@ -287,7 +294,7 @@ class GatedSwAVModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 128 + 16 + 3
+            return self.obs_dim + 3 + 224
         else:
             return self.obs_dim + 64
 

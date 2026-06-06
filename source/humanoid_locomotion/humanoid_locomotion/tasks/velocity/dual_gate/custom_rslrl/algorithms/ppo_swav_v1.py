@@ -21,7 +21,7 @@ from rsl_rl.storage import RolloutStorage
 from rsl_rl.utils import compile_model, resolve_callable, resolve_obs_groups, resolve_optimizer
 
 
-class PPOVelocity:
+class PPOSwAV:
     """Proximal Policy Optimization algorithm.
 
     Reference:
@@ -92,19 +92,23 @@ class PPOVelocity:
         self._raw_critic = self.critic
 
         # Create the optimizer
-        velocity_estimator_params = list(chain(
+        self.swav_params = list(chain(
             self.actor.cnn1d.parameters(),
-            self.actor.velocity_estimator.parameters(),
+            self.actor.encoder_velocity.parameters(),
+            self.actor.encoder_left.parameters(),
+            self.actor.encoder_right.parameters(),
+            self.actor.target.parameters(),
+            self.actor.proto.parameters(),
         ))
-        velocity_estimator_ids = {id(p) for p in velocity_estimator_params}
-        ppo_only_params = [
+        swav_ids = {id(p) for p in self.swav_params}
+        self.ppo_params = [
             p for p in dict.fromkeys(chain(self.actor.parameters(), self.critic.parameters()))
-            if id(p) not in velocity_estimator_ids
+            if id(p) not in swav_ids
         ]
 
         self.optimizer = resolve_optimizer(optimizer)([
-            {"params": ppo_only_params, "lr": learning_rate, "name": "ppo"},
-            {"params": velocity_estimator_params, "lr": 0.001, "name": "velocity_estimator"},
+            {"params": self.ppo_params, "lr": learning_rate, "name": "ppo"},
+            {"params": self.swav_params, "lr": learning_rate, "name": "swav"},
         ])  # type: ignore
 
         # Add storage
@@ -217,6 +221,8 @@ class PPOVelocity:
         mean_symmetry_loss = 0 if self.symmetry.use_mirror_loss else None
         # Velocity loss
         mean_velocity_loss = 0
+        # SwAV loss
+        mean_swav_loss = 0
         # Explained Variance
         mean_explained_variance = 0
 
@@ -282,6 +288,8 @@ class PPOVelocity:
                     for param_group in self.optimizer.param_groups:
                         if param_group.get("name") == "ppo":
                             param_group["lr"] = self.learning_rate
+                        # if param_group.get("name") == "swav":
+                        #     param_group["lr"] = self.learning_rate
 
             # Surrogate loss
             ratio = torch.exp(actions_log_prob - torch.squeeze(batch.old_actions_log_prob))  # type: ignore
@@ -311,9 +319,12 @@ class PPOVelocity:
                 if self.symmetry.use_mirror_loss:
                     loss = loss + self.symmetry.mirror_loss_coeff * symmetry_loss
 
-            # Velocity loss
-            velocity_loss = F.mse_loss(self.actor.velocity.float(), batch.observations["critic"][:, :3])
-            loss += 1.0 * velocity_loss
+            # Compute the gradients for SwAV
+            privilege = ((batch.observations["critic"] - self.critic.obs_normalizer._mean) /
+                         (self.critic.obs_normalizer._std + self.critic.obs_normalizer.eps))[:, 99:].reshape(-1, 30)
+            velocity = batch.observations["critic"][:, :3]
+            velocity_loss, swav_loss = self.actor.update(privilege, velocity)
+            loss = loss + velocity_loss + swav_loss
 
             # Compute the gradients for PPO
             self.optimizer.zero_grad()
@@ -328,8 +339,8 @@ class PPOVelocity:
                 self.reduce_parameters()
 
             # Apply the gradients for PPO
-            nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-            nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.ppo_params, self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.swav_params, 10.0)
             self.optimizer.step()
             # Apply the gradients for RND
             if self.rnd:
@@ -348,6 +359,8 @@ class PPOVelocity:
             # Velocity loss
             if velocity_loss is not None:
                 mean_velocity_loss += velocity_loss.item()
+            # SwAV loss
+            mean_swav_loss += swav_loss.item()
             # Explained Variance
             with torch.inference_mode():
                 explained_variance = 1 - torch.var(batch.returns - values) / (torch.var(batch.returns) + 1e-8)
@@ -363,6 +376,7 @@ class PPOVelocity:
         if mean_symmetry_loss is not None:
             mean_symmetry_loss /= num_updates
         mean_velocity_loss /= num_updates
+        mean_swav_loss /= num_updates
         mean_explained_variance /= num_updates
 
         # Construct the loss dictionary
@@ -376,6 +390,7 @@ class PPOVelocity:
         if self.symmetry.use_mirror_loss:
             loss_dict["symmetry"] = mean_symmetry_loss
         loss_dict["velocity"] = mean_velocity_loss
+        loss_dict["swav"] = mean_swav_loss
         loss_dict["explained_variance"] = mean_explained_variance
 
         # Clear the storage

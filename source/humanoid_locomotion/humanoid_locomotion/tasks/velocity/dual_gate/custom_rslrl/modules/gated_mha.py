@@ -91,7 +91,7 @@ class GatedMHA(nn.Module):
         k = self.key_norm(k)
 
         if need_weights:
-            attn_output_weights = torch.softmax(torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1)
+            attn_output_weights = torch.softmax(torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1).mean(dim=1)
         else:
             attn_output_weights = None
 

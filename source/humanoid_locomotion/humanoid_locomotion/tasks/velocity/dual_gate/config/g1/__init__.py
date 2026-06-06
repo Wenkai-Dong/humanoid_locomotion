@@ -206,6 +206,7 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "ame1_rsl_rl_cfg_entry_point": f"{agents.__name__}.ame1_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 gym.register(
@@ -217,6 +218,7 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.velocity_cnn_rsl_rl_ppo_cfg:G1RoughPPORunnerCfgWithSymmetryCfg",
         "mha_rsl_rl_cfg_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "ame1_rsl_rl_cfg_entry_point": f"{agents.__name__}.ame1_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
     },
 )
 
@@ -232,9 +234,11 @@ gym.register(
         "vae_d_rsl_rl_cfg_entry_point": f"{agents.__name__}.vae_d_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "swav_rsl_rl_cfg_entry_point": f"{agents.__name__}.swav_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "swav_s_rsl_rl_cfg_entry_point": f"{agents.__name__}.swav_s_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
+        "swav_rsl_rl_cfg_v1_entry_point": f"{agents.__name__}.swav_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerCfg",
         "concurrent_rsl_rl_cfg_entry_point": f"{agents.__name__}.concurrent_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_swav_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_swav_rsl_rl_ppo_cfg:G1RoughPPORunnerCfg",
         "gated_swav_rsl_rl_cfg_v1_entry_point": f"{agents.__name__}.gated_swav_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerCfg",
+        "mha_rsl_rl_cfg_v1_entry_point": f"{agents.__name__}.mha_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerCfg",
     },
 )
 gym.register(

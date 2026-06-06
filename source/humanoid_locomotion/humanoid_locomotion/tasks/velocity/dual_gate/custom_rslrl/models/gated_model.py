@@ -152,6 +152,7 @@ class GatedMHAModel(MLPModel):
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
         self.mha = GatedMHA(embed_dim=64, num_heads=16)
+        self.need_weights = False
 
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -178,7 +179,7 @@ class GatedMHAModel(MLPModel):
         latent_mapping = torch.cat([latent_cnn, latent_position], dim=-1)   # (N, 234, 64)
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
-        latent_mha, _ = self.mha(query, key, latent_mapping, need_weights=False)    # (N, 1, 64)
+        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)    # (N, 1, 64)
         latent_mha = latent_mha.flatten(1) # (N, 64)
         # Concatenate 1D and CNN latents
         return torch.cat([latent_1d, latent_mha], dim=-1)   # (N, 128)

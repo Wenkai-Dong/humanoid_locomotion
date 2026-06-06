@@ -9,18 +9,23 @@ from __future__ import annotations
 import copy
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from tensordict import TensorDict
 from typing import Any
 
 from rsl_rl.modules import MLP
 from rsl_rl.models.mlp_model import MLPModel
-from rsl_rl.modules import CNN, HiddenState
-from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import GatedMHA
+from rsl_rl.modules import CNN, HiddenState, EmpiricalNormalization
 from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import CNN1D
 
 
-class GatedSwAVModel(MLPModel):
+class MHAModel(MLPModel):
+    """CNN-based neural model.
+
+    This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
+    before passing the resulting latent to an MLP. Any 1D observation groups are directly concatenated with the CNN
+    latent and passed to the MLP. 1D observations can be normalized before being passed to the MLP. The output of the
+    model can be either deterministic or stochastic, in which case a distribution module is used to sample the outputs.
+    """
 
     def __init__(
         self,
@@ -35,7 +40,20 @@ class GatedSwAVModel(MLPModel):
         cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
         cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
     ) -> None:
-        self.temperature = 3.0
+        """Initialize the CNN-based model.
+
+        Args:
+            obs: Observation Dictionary.
+            obs_groups: Dictionary mapping observation sets to lists of observation groups.
+            obs_set: Observation set to use for this model (e.g., "actor" or "critic").
+            output_dim: Dimension of the output.
+            hidden_dims: Hidden dimensions of the MLP.
+            activation: Activation function of the CNN and MLP.
+            obs_normalization: Whether to normalize the observations before feeding them to the MLP.
+            distribution_cfg: Configuration dictionary for the output distribution.
+            cnn_cfg: Configuration of the CNN encoder(s).
+            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
+        """
         # Resolve observation groups and dimensions
         if obs[obs_set].dim() == 3:
             obs_current = obs.clone()
@@ -117,17 +135,17 @@ class GatedSwAVModel(MLPModel):
                 if isinstance(module, nn.Conv1d):
                     torch.nn.init.kaiming_normal_(module.weight)
                     torch.nn.init.zeros_(module.bias)  # type: ignore
+            self.cnn1d[-1].init_weights([2**0.5, None, 2**0.5, None, 2**0.5, None, 2**0.5, None])
 
-            self.encoder_velocity = MLP(256, 3, (64,), activation)
-            self.encoder_left = MLP(256, 8, (128, 64), activation)
-            self.encoder_right = MLP(256, 8, (128, 64), activation)
-            self.target = MLP(30, 8, (128, 64), activation)
-            self.proto = nn.Embedding(32, 8)
+            self.velocity_estimator = MLP(256, 3, (64,), activation)
+            self.velocity_estimator.init_weights([2**0.5, None, 0.001])
 
-        self.linear = nn.Linear(obs_dim_1d + 8 + 3, 64)
-
+        self.linear = nn.Linear(obs_dim_1d + 3, 64)
+        self.linear_z = nn.Linear(30, 64)
         nn.init.orthogonal_(self.linear.weight, gain=1.0)
         nn.init.zeros_(self.linear.bias)
+        nn.init.orthogonal_(self.linear_z.weight, gain=1.0)
+        nn.init.zeros_(self.linear_z.bias)
 
         self.position = nn.Sequential(
             nn.Linear(3, 32),
@@ -148,11 +166,18 @@ class GatedSwAVModel(MLPModel):
             nn.LayerNorm([16, 13, 18]),
             nn.ELU(),
         )
+        for idx, module in enumerate(self.dilated_cnn):
+            if isinstance(module, nn.Conv2d):
+                torch.nn.init.kaiming_normal_(module.weight)
+                torch.nn.init.zeros_(module.bias)  # type: ignore
 
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
-        self.mha = GatedMHA(embed_dim=64, num_heads=16)
+        self.mha = nn.MultiheadAttention(embed_dim=64, num_heads=16, batch_first=True)
+        self.o_norm = nn.LayerNorm(64)
         self.need_weights = False
+
+        self.privilege_normalizer = EmpiricalNormalization(60)
 
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
@@ -166,14 +191,14 @@ class GatedSwAVModel(MLPModel):
             obs_current = obs
         # Concatenate 1D observation groups and normalize
         latent_1d = super().get_latent(obs_current)
-        # get velocity and privilege
+        # get velocity
         if self.obs_groups[0] == "actor":
-            velocity, z_l, z_r = self.swav(obs)
-            velocity, z_l, z_r = velocity.detach(), z_l.detach(), z_r.detach()
-            latent_1d_l = torch.cat((velocity, latent_1d, z_l), dim=-1)
-            latent_1d_r = torch.cat((velocity, latent_1d, z_r), dim=-1)
-            latent_1d_p = torch.stack([latent_1d_l, latent_1d_r], dim=1)
-        latent_1d_encoder = self.linear(latent_1d_p) # (N, 2, 64)
+            velocity = self.get_velocity(obs).detach()
+            latent_1d = torch.cat((velocity, latent_1d), dim=-1)
+        latent_1d_linear = self.linear(latent_1d).unsqueeze(1)
+        privilege_obs = self.privilege_normalizer(obs_current["critic"][:, 99:])
+        privilege_latent = self.linear_z(privilege_obs.reshape(-1, 2, 30))
+        latent_1d_encoder = torch.cat([latent_1d_linear, privilege_latent], dim=1)
         # Process 2D observation groups with CNNs
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:, 2:3, ...]) for obs_group in self.obs_groups_2d]
         latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 32, 13, 18)
@@ -184,66 +209,20 @@ class GatedSwAVModel(MLPModel):
         latent_mapping = torch.cat([latent_cnn, latent_dilated, latent_position], dim=-1)   # (N, 234, 64)
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
-        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)    # (N, 2, 64)
-        latent_mha = latent_mha.flatten(1) # (N, 128)
+        latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)
+        latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 192)
         # Concatenate 1D and CNN latents
-        return torch.cat([velocity, latent_1d, latent_mha, z_l, z_r], dim=-1)   # (N, 355)
+        return torch.cat([latent_1d, latent_mha, privilege_obs], dim=-1)   # (N, 128)
 
-    def swav(
+    def get_velocity(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ):
         """Build the base velocity by concatenating and normalizing selected observation groups."""
         # Normalize hitstory observation groups and normalize
         obs_history = (obs["actor"] - self.obs_normalizer._mean) / (self.obs_normalizer._std + self.obs_normalizer.eps)
         latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
-        self.velocity = self.encoder_velocity(latent_history)
-        z_l = self.encoder_left(latent_history)
-        z_r = self.encoder_right(latent_history)
-        z_l = F.normalize(z_l, dim=-1, p=2)
-        z_r = F.normalize(z_r, dim=-1, p=2)
-        self.z = torch.stack((z_l, z_r), dim=1).reshape(-1, 8)
-        return self.velocity, z_l, z_r
-
-    def update(self, privilege, vel):
-        pred_vel = self.velocity.float()
-        z_s = self.z.float()    # (2N, 8)
-        z_t = self.target(privilege)    # (2N, 8)
-        z_t = F.normalize(z_t, dim=-1, p=2)
-
-        with torch.no_grad():
-            w = self.proto.weight.data.clone()
-            w = F.normalize(w, dim=-1, p=2)
-            self.proto.weight.copy_(w)
-
-        score_s = z_s @ self.proto.weight.T # (2N, 32)
-        score_t = z_t @ self.proto.weight.T
-
-        with torch.no_grad():
-            q_s = self.sinkhorn(score_s)    # (2N, 32)
-            q_t = self.sinkhorn(score_t)
-
-        log_p_s = F.log_softmax(score_s / self.temperature, dim=-1) # (2N, 32)
-        log_p_t = F.log_softmax(score_t / self.temperature, dim=-1)
-
-        swav_loss = -0.5 * (q_s * log_p_t + q_t * log_p_s).mean()
-        velocity_loss = F.mse_loss(pred_vel, vel)
-        return velocity_loss, swav_loss
-
-    @torch.no_grad()
-    def sinkhorn(self, out, eps=0.05, iters=3):
-        Q = torch.exp(out / eps).T
-        K, B = Q.shape[0], Q.shape[1]
-        Q /= Q.sum()
-
-        for it in range(iters):
-            # normalize each row: total weight per prototype must be 1/K
-            Q /= torch.sum(Q, dim=1, keepdim=True)
-            Q /= K
-
-            # normalize each column: total weight per sample must be 1/B
-            Q /= torch.sum(Q, dim=0, keepdim=True)
-            Q /= B
-        return (Q * B).T
+        self.velocity = self.velocity_estimator(latent_history)
+        return self.velocity
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""
@@ -287,7 +266,7 @@ class GatedSwAVModel(MLPModel):
     def _get_latent_dim(self) -> int:
         """Return the latent dimensionality consumed by the MLP head."""
         if self.obs_groups[0] == "actor":
-            return self.obs_dim + 128 + 16 + 3
+            return self.obs_dim + 192 + 3 + 60
         else:
             return self.obs_dim + 64
 
