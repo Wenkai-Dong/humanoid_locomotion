@@ -106,7 +106,7 @@ class G1RoughPPORunnerSDPACfg(G1RoughPPORunnerKeyCfg):
 
 
 @configclass
-class G1RoughPPORunnerSDPACfg(G1RoughPPORunnerKeyCfg):
+class G1RoughPPORunnerDenseCfg(G1RoughPPORunnerKeyCfg):
     def __post_init__(self):
         super().__post_init__()
         self.actor.gated_position = "dense"

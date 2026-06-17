@@ -196,10 +196,11 @@ class GatedMHAModel(MLPModel):
         latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 32, 13, 18)
         latent_cnn = latent_cnn.flatten(2).permute(0, 2, 1) # (N, 234, 32)
         # Process 2D observation groups with Dilated CNNs
-        latent_dilated = self.dilated_cnn(obs["actor_map"][:, 2:3, ...])   # (N, 16, 13, 18)
+        map_key = self.obs_groups_2d[0]
+        latent_dilated = self.dilated_cnn(obs[map_key][:, 2:3, ...])   # (N, 16, 13, 18)
         latent_dilated = latent_dilated.flatten(2).permute(0, 2, 1) # (N, 234, 16)
         # Process 2D observation groups with MLP
-        latent_position = self.position(obs["actor_map"].flatten(2).permute(0, 2, 1))   # (N, 234, 16)
+        latent_position = self.position(obs[map_key].flatten(2).permute(0, 2, 1))   # (N, 234, 16)
         latent_mapping = torch.cat([latent_cnn, latent_position, latent_dilated], dim=-1)   # (N, 234, 64)
         # pool
         mapping_pool = self.pool(latent_mapping)    # (N, 234, 64)
