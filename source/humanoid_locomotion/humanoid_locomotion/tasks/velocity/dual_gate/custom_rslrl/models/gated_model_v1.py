@@ -15,10 +15,11 @@ from typing import Any
 from rsl_rl.modules import MLP
 from rsl_rl.models.mlp_model import MLPModel
 from rsl_rl.modules import CNN, HiddenState
+from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import GatedMHAv1
 from humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.modules import CNN1D
 
 
-class MHAModel(MLPModel):
+class GatedMHAModel(MLPModel):
     """CNN-based neural model.
 
     This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
@@ -39,21 +40,8 @@ class MHAModel(MLPModel):
         distribution_cfg: dict | None = None,
         cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
         cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
+        gated_position: str | None = None,
     ) -> None:
-        """Initialize the CNN-based model.
-
-        Args:
-            obs: Observation Dictionary.
-            obs_groups: Dictionary mapping observation sets to lists of observation groups.
-            obs_set: Observation set to use for this model (e.g., "actor" or "critic").
-            output_dim: Dimension of the output.
-            hidden_dims: Hidden dimensions of the MLP.
-            activation: Activation function of the CNN and MLP.
-            obs_normalization: Whether to normalize the observations before feeding them to the MLP.
-            distribution_cfg: Configuration dictionary for the output distribution.
-            cnn_cfg: Configuration of the CNN encoder(s).
-            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
-        """
         # Resolve observation groups and dimensions
         if obs[obs_set].dim() == 3:
             obs_current = obs.clone()
@@ -144,10 +132,7 @@ class MHAModel(MLPModel):
             )
             self.velocity = None
 
-        if obs_set == "actor":
-            self.linear = nn.Linear(obs_dim_1d + 3, 64)
-        else:
-            self.linear = nn.Linear(obs_dim_1d, 64)
+        self.linear = nn.Linear(163, 64)
         nn.init.orthogonal_(self.linear.weight, gain=1.0)
         nn.init.zeros_(self.linear.bias)
 
@@ -156,15 +141,36 @@ class MHAModel(MLPModel):
             nn.LayerNorm(32),
             nn.ELU(),
             nn.Linear(32, 16),
+            nn.LayerNorm(16),
+            nn.ELU(),
         )
         nn.init.orthogonal_(self.position[0].weight, gain=1.0)
-        nn.init.orthogonal_(self.position[3].weight, gain=2 ** 0.5)
+        nn.init.orthogonal_(self.position[3].weight, gain=1.0)
         nn.init.zeros_(self.position[0].bias)
         nn.init.zeros_(self.position[3].bias)
 
+        self.dilated_cnn = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=16, kernel_size=5, stride=1, padding=4, dilation=2),
+            nn.LayerNorm([16, 13, 18]),
+            nn.ELU(),
+            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=5, stride=1, padding=6, dilation=3),
+            nn.LayerNorm([16, 13, 18]),
+            nn.ELU(),
+        )
+        for idx, module in enumerate(self.dilated_cnn):
+            if isinstance(module, nn.Conv2d):
+                torch.nn.init.kaiming_normal_(module.weight)
+                torch.nn.init.zeros_(module.bias)  # type: ignore
+
+        self.pool = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.Softmax(dim=1),
+        )
+
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
-        self.mha = nn.MultiheadAttention(embed_dim=64, num_heads=16, batch_first=True)
+        if gated_position is not None:
+            self.mha = GatedMHAv1(embed_dim=64, num_heads=16, gated_position=gated_position)
         self.o_norm = nn.LayerNorm(64)
         self.need_weights = False
 
@@ -184,17 +190,26 @@ class MHAModel(MLPModel):
         if self.obs_groups[0] == "actor":
             velocity = self.get_velocity(obs).detach()
             latent_1d = torch.cat((velocity, latent_1d), dim=-1)
-        latent_1d_encoder = self.linear(latent_1d).unsqueeze(1) # (N, 1, 64)
+        latent_1d_encoder = latent_1d.unsqueeze(1) # (N, 1, 99)
         # Process 2D observation groups with CNNs
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group][:, 2:3, ...]) for obs_group in self.obs_groups_2d]
-        latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 48, 13, 18)
-        latent_cnn = latent_cnn.flatten(2).permute(0, 2, 1) # (N, 234, 48)
+        latent_cnn = torch.cat(latent_cnn_list, dim=-1) # (N, 32, 13, 18)
+        latent_cnn = latent_cnn.flatten(2).permute(0, 2, 1) # (N, 234, 32)
+        # Process 2D observation groups with Dilated CNNs
+        latent_dilated = self.dilated_cnn(obs["actor_map"][:, 2:3, ...])   # (N, 16, 13, 18)
+        latent_dilated = latent_dilated.flatten(2).permute(0, 2, 1) # (N, 234, 16)
+        # Process 2D observation groups with MLP
         latent_position = self.position(obs["actor_map"].flatten(2).permute(0, 2, 1))   # (N, 234, 16)
-        latent_mapping = torch.cat([latent_cnn, latent_position], dim=-1)   # (N, 234, 64)
+        latent_mapping = torch.cat([latent_cnn, latent_position, latent_dilated], dim=-1)   # (N, 234, 64)
+        # pool
+        mapping_pool = self.pool(latent_mapping)    # (N, 234, 64)
+        gobal_mapping = torch.sum(mapping_pool * latent_mapping, dim=1, keepdim=True)   # (N, 1, 64)
+        latent_1d_encoder = self.linear(torch.concat([latent_1d_encoder, gobal_mapping], dim=-1))   # (N, 1, 64)
+        # gated_mha
         query = self.q_norm(latent_1d_encoder)
         key = self.k_norm(latent_mapping)
         latent_mha, self.attn_output_weights = self.mha(query, key, latent_mapping, need_weights=self.need_weights)    # (N, 1, 64)
-        latent_mha = self.o_norm(latent_mha).flatten(1) # (N, 64)
+        latent_mha = self.o_norm(latent_mha).flatten(1)
         # Concatenate 1D and CNN latents
         return torch.cat([latent_1d, latent_mha], dim=-1)   # (N, 128)
 
@@ -205,7 +220,7 @@ class MHAModel(MLPModel):
         # Normalize hitstory observation groups and normalize
         obs_history = (obs["actor"] - self.obs_normalizer._mean) / (self.obs_normalizer._std + self.obs_normalizer.eps)
         latent_history = self.cnn1d(obs_history.permute(0, 2, 1).contiguous())
-        self.velocity = self.velocity_estimator(latent_history).float()
+        self.velocity = self.velocity_estimator(latent_history)
         return self.velocity
 
     def as_jit(self) -> nn.Module:

@@ -92,19 +92,19 @@ class PPOVelocity:
         self._raw_critic = self.critic
 
         # Create the optimizer
-        velocity_estimator_params = list(chain(
+        self.velocity_estimator_params = list(chain(
             self.actor.cnn1d.parameters(),
             self.actor.velocity_estimator.parameters(),
         ))
-        velocity_estimator_ids = {id(p) for p in velocity_estimator_params}
-        ppo_only_params = [
+        velocity_estimator_ids = {id(p) for p in self.velocity_estimator_params}
+        self.ppo_params = [
             p for p in dict.fromkeys(chain(self.actor.parameters(), self.critic.parameters()))
             if id(p) not in velocity_estimator_ids
         ]
 
         self.optimizer = resolve_optimizer(optimizer)([
-            {"params": ppo_only_params, "lr": learning_rate, "name": "ppo"},
-            {"params": velocity_estimator_params, "lr": 0.001, "name": "velocity_estimator"},
+            {"params": self.ppo_params, "lr": learning_rate, "name": "ppo"},
+            {"params": self.velocity_estimator_params, "lr": 0.001, "name": "velocity_estimator"},
         ])  # type: ignore
 
         # Add storage
@@ -328,8 +328,8 @@ class PPOVelocity:
                 self.reduce_parameters()
 
             # Apply the gradients for PPO
-            nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-            nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.ppo_params, self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.velocity_estimator_params, 10.0)
             self.optimizer.step()
             # Apply the gradients for RND
             if self.rnd:

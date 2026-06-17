@@ -25,6 +25,14 @@ class RslRlCNNVelocityModelCfg(RslRlCNNModelCfg):
     class_name: str = "humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.cnn_velocity_model:CNNVelocityModel"
     """The model class name. Defaults to VelocityCNNModel."""
 
+@configclass
+class RslRlGatedModelCfgv1(RslRlCNNModelCfg):
+    """Configuration for CNN model."""
+
+    class_name: str = "humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model_v1:GatedMHAModel"
+
+    gated_position:  Literal["key", "value", "sdpa", "dense"] = MISSING
+
 
 
 ############################
@@ -70,4 +78,4 @@ class RslRlOnPolicyRunnerCfgNew(RslRlOnPolicyRunnerCfg):
     class_name: str = "OnPolicyRunner"
     """The runner class name. Defaults to OnPolicyRunner."""
 
-    torch_compile_mode : Literal["default", "max-autotune-no-cudagraphs"] | None = None
+    torch_compile_mode: Literal["default", "max-autotune-no-cudagraphs"] | None = None
