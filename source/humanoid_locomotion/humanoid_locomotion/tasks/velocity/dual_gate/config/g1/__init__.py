@@ -198,7 +198,7 @@ gym.register(
         "gated_key_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerKeyCfg",
         "gated_value_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerValueCfg",
         "gated_sdpa_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerSDPACfg",
-        "gated_dense_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerDenseCfg",
+        "gated_pool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerPoolCfg",
     },
 )
 gym.register(
@@ -230,7 +230,7 @@ gym.register(
         "gated_key_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerKeyCfg",
         "gated_value_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerValueCfg",
         "gated_sdpa_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerSDPACfg",
-        "gated_dense_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerDenseCfg",
+        "gated_pool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerPoolCfg",
     },
 )
 
