@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import MISSING
+from typing import Literal
 
 from isaaclab.utils import configclass
 
@@ -31,7 +32,7 @@ class RslRlGatedModelCfgv1(RslRlCNNModelCfg):
 
     class_name: str = "humanoid_locomotion.tasks.velocity.dual_gate.custom_rslrl.models.gated_model_v1:GatedMHAModel"
 
-    gated_position:  Literal["key", "value", "sdpa", "dense"] = MISSING
+    gated_position: Literal["key", "value", "sdpa", "dense"] | None = MISSING
 
 
 

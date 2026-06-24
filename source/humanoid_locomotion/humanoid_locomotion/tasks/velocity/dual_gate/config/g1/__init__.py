@@ -199,6 +199,8 @@ gym.register(
         "gated_value_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerValueCfg",
         "gated_sdpa_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerSDPACfg",
         "pool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerPoolCfg",
+        "gated_sdpa_maxpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerMaxPoolCfg",
+        "gated_sdpa_attnpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerAttnPoolCfg",
     },
 )
 gym.register(
@@ -215,6 +217,8 @@ gym.register(
         "gated_value_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerValueCfg",
         "gated_sdpa_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerSDPACfg",
         "pool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerPoolCfg",
+        "gated_sdpa_maxpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerMaxPoolCfg",
+        "gated_sdpa_attnpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerAttnPoolCfg",
     },
 )
 gym.register(
@@ -231,6 +235,8 @@ gym.register(
         "gated_value_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerValueCfg",
         "gated_sdpa_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerSDPACfg",
         "pool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1:G1RoughPPORunnerPoolCfg",
+        "gated_sdpa_maxpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerMaxPoolCfg",
+        "gated_sdpa_attnpool_rsl_rl_cfg_entry_point": f"{agents.__name__}.gated_rsl_rl_ppo_cfg_v1_pool:G1RoughPPORunnerAttnPoolCfg",
     },
 )
 
