@@ -169,8 +169,7 @@ class GatedMHAModel(MLPModel):
 
         self.q_norm = nn.LayerNorm(64)
         self.k_norm = nn.LayerNorm(64)
-        if gated_position is not None:
-            self.mha = GatedMHAv1(embed_dim=64, num_heads=16, gated_position=gated_position)
+        self.mha = GatedMHAv1(embed_dim=64, num_heads=16, gated_position=gated_position)
         self.o_norm = nn.LayerNorm(64)
         self.need_weights = False
 
